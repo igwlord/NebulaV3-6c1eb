@@ -1,0 +1,165 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Lato:wght@400;700&display=swap');
+
+:root {
+  --color-bg-primary: #e0f7fa;
+  --color-bg-secondary: #fffde7;
+  --color-bg-tertiary: #fff8e1;
+  --color-text-primary: #3e2723;
+  --color-text-secondary: #6d4c41;
+  --color-primary: #ff7043;
+  --color-accent-gold: #ffca28;
+  --color-accent-magenta: #ec407a;
+  --color-accent-cyan: #26c6da;
+  --color-accent-green: #66bb6a;
+  --color-border: #ffe0b2;
+}
+
+.dark {
+  --color-bg-primary: #0D1117;
+  --color-bg-secondary: #161B22;
+  --color-bg-tertiary: #21262D;
+  --color-text-primary: #E6EDF3;
+  --color-text-secondary: #8B949E;
+  --color-primary: #D4AF37;
+  --color-accent-gold: #F0C674;
+  --color-accent-magenta: #C389D9;
+  --color-accent-cyan: #79B8FF;
+  --color-accent-green: #56D364;
+  --color-border: #30363D;
+}
+
+body {
+  font-family: 'Lato', sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+.bg-background-primary {
+  background-color: var(--color-bg-primary);
+}
+
+.bg-background-secondary {
+  background-color: var(--color-bg-secondary);
+}
+
+.bg-background-tertiary {
+  background-color: var(--color-bg-tertiary);
+}
+
+.text-text-primary {
+  color: var(--color-text-primary);
+}
+
+.text-text-secondary {
+  color: var(--color-text-secondary);
+}
+
+.bg-primary {
+  background-color: var(--color-primary);
+}
+
+.text-primary {
+  color: var(--color-primary);
+}
+
+.border-border-color {
+  border-color: var(--color-border);
+}
+
+.hover\:bg-primary\/20:hover {
+  background-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+.focus\:ring-primary:focus {
+  --tw-ring-color: var(--color-primary);
+}
+
+.focus\:border-primary:focus {
+  border-color: var(--color-primary);
+}
+
+.text-accent-gold {
+  color: var(--color-accent-gold);
+}
+
+.text-accent-magenta {
+  color: var(--color-accent-magenta);
+}
+
+.text-accent-cyan {
+  color: var(--color-accent-cyan);
+}
+
+.text-accent-green {
+  color: var(--color-accent-green);
+}
+
+.from-accent-cyan {
+  --tw-gradient-from: var(--color-accent-cyan) var(--tw-gradient-from-position);
+  --tw-gradient-to: color-mix(in srgb, var(--color-accent-cyan) 0%, transparent) var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+
+.to-primary {
+  --tw-gradient-to: var(--color-primary) var(--tw-gradient-to-position);
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.transition-width {
+  transition: width 0.5s ease-in-out;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-tertiary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-primary) 80%, black);
+}
+
+.animated-gradient {
+  background: linear-gradient(-45deg, #0d1117, #1c2a4a, #4f4c7a, #c389d9);
+  background-size: 400% 400%;
+  animation: gradient-animation 15s ease infinite;
+}
+
+@keyframes gradient-animation {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
