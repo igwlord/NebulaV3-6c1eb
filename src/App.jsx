@@ -83,20 +83,13 @@ const formatCurrency = (number = 0, targetCurrency = 'ARS', dolarMepRate = 1) =>
     }
 };
 
-// Configuración de Firebase desde variables de entorno o fallback vacío
-const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-    appId: import.meta.env.VITE_FIREBASE_APP_ID || ''
-};
+// Importar configuración centralizada
+import { firebaseConfig } from './firebase-config.js';
 
 const appId = import.meta.env.VITE_FIREBASE_PROJECT_ID || 'nebula-demo-app';
 
 // Modo invitado con localStorage (cuando no hay configuración de Firebase válida)
-const useLocalStorage = !firebaseConfig.apiKey || Object.values(firebaseConfig).every(val => !val);
+const useLocalStorage = !firebaseConfig.apiKey || firebaseConfig.apiKey === 'demo-api-key' || Object.values(firebaseConfig).every(val => !val || val.includes('demo'));
 
 // --- CONTEXTO GLOBAL ---
 const AppContext = createContext();
@@ -129,6 +122,14 @@ const AppProvider = ({ children }) => {
     const [presupuestos, setPresupuestos] = useState({});
     const [habilidades, setHabilidades] = useState({});
 
+    // Efecto inicial para detectar el modo de funcionamiento
+    useEffect(() => {
+        if (useLocalStorage) {
+            console.log('Usando modo invitado (sin Firebase)');
+            setIsGuestMode(true);
+        }
+    }, []);
+
     useEffect(() => {
         if (isGuestMode && useLocalStorage) {
             // Modo invitado: usar localStorage
@@ -145,9 +146,22 @@ const AppProvider = ({ children }) => {
                 setHabilidades(settings.habilidades || {});
             }
         } else if (!useLocalStorage && Object.keys(firebaseConfig).length > 0) {
-            const app = initializeApp(firebaseConfig);
-            setDb(getFirestore(app));
-            setAuth(getAuth(app));
+            try {
+                console.log('Iniciando Firebase con configuración:', firebaseConfig);
+                const app = initializeApp(firebaseConfig);
+                setDb(getFirestore(app));
+                setAuth(getAuth(app));
+            } catch (error) {
+                console.error('Error al inicializar Firebase, usando modo invitado:', error);
+                // Si falla Firebase, usar modo invitado automáticamente
+                setIsGuestMode(true);
+                setUserId('guest-user');
+            }
+        } else {
+            // Fallback al modo invitado si no hay configuración válida
+            console.log('No hay configuración de Firebase válida, usando modo invitado');
+            setIsGuestMode(true);
+            setUserId('guest-user');
         }
     }, [isGuestMode]);
 
@@ -417,6 +431,11 @@ const WelcomeScreen = () => {
     const fullTitle = "Nebula";
 
     const handleGoogleSignIn = async () => {
+        if (useLocalStorage || !auth) {
+            showNotification("Firebase no está configurado. Usa el modo invitado para probar la aplicación.", "warning");
+            return;
+        }
+        
         const provider = new GoogleAuthProvider();
         try {
             await signInWithPopup(auth, provider);
