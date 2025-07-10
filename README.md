@@ -97,6 +97,17 @@ npm run build
 
 2. Sube la carpeta `dist` a Netlify
 
+## 🚀 Deployment
+
+Este proyecto está listo para ser desplegado en Netlify con builds automáticos desde la rama principal.
+
+- Comando de build: `npm run build`
+- Directorio de publicación: `dist`
+- Versión de Node: 18
+
+---
+*Última actualización: 9 de julio de 2025*
+
 ## 📱 Modo Invitado
 
 La aplicación funciona completamente sin configuración de Firebase gracias al modo invitado:
