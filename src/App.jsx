@@ -48,6 +48,7 @@ const icons = {
   chevronRight: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>,
   info: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>,
   warning: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+  gripVertical: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>,
   google: (props) => <svg {...props} width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17.64 9.20455C17.64 8.56636 17.5827 7.95273 17.4682 7.36364H9V10.845H13.8436C13.635 11.97,13.0009 12.9232,12.0477 13.5614V15.8195H14.9564C16.6582 14.2527,17.64 11.9455,17.64 9.20455Z" fill="#4285F4"/><path d="M9 18C11.43 18,13.4673 17.1941,14.9564 15.8195L12.0477 13.5614C11.2418 14.1,10.2109 14.4205,9 14.4205C6.48 14.4205,4.36364 12.6805,3.65182 10.4386H0.717273V12.7805C2.25818 15.795,5.36182 18,9 18Z" fill="#34A853"/><path d="M3.65182 10.4386C3.45455 9.835,3.34091 9.19682,3.34091 8.525C3.34091 7.85318,3.45455 7.215,3.65182 6.61136V4.26955H0.717273C0.258182 5.25,0 6.35318,0 7.525C0 8.69682,0.258182 9.79955,0.717273 10.7805L3.65182 10.4386Z" fill="#FBBC05"/><path d="M9 3.57955C10.3214 3.57955,11.5077 4.03864,12.4405 4.935L15.0218 2.35455C13.4673 0.893636,11.43 0,9 0C5.36182 0,2.25818 2.205,0.717273 5.21955L3.65182 7.56136C4.36364 5.31955,6.48 3.57955,9 3.57955Z" fill="#EA4335"/></svg>,
 };
 
@@ -1109,6 +1110,35 @@ const Dock = () => {
     );
 };
 
+// --- COMPONENTE TOOLTIP ---
+const CustomTooltip = ({ children, text, position = "top" }) => {
+    const [isVisible, setIsVisible] = useState(false);
+    
+    return (
+        <div className="relative inline-block"
+             onMouseEnter={() => setIsVisible(true)}
+             onMouseLeave={() => setIsVisible(false)}>
+            {children}
+            {isVisible && (
+                <div className={`absolute z-50 px-2 py-1 text-xs text-white bg-gray-900 rounded-md whitespace-nowrap 
+                    ${position === 'top' ? 'bottom-full mb-2 left-1/2 transform -translate-x-1/2' : ''}
+                    ${position === 'bottom' ? 'top-full mt-2 left-1/2 transform -translate-x-1/2' : ''}
+                    ${position === 'left' ? 'right-full mr-2 top-1/2 transform -translate-y-1/2' : ''}
+                    ${position === 'right' ? 'left-full ml-2 top-1/2 transform -translate-y-1/2' : ''}
+                    animate-fade-in`}>
+                    {text}
+                    <div className={`absolute w-2 h-2 bg-gray-900 transform rotate-45
+                        ${position === 'top' ? 'top-full left-1/2 -translate-x-1/2 -mt-1' : ''}
+                        ${position === 'bottom' ? 'bottom-full left-1/2 -translate-x-1/2 -mb-1' : ''}
+                        ${position === 'left' ? 'left-full top-1/2 -translate-y-1/2 -ml-1' : ''}
+                        ${position === 'right' ? 'right-full top-1/2 -translate-y-1/2 -mr-1' : ''}`}>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const CrudPage = ({ title, data, setData, collectionName, fieldsConfig }) => {
     const { db, userId, appId, selectedDate, currency, dolarMep, useLocalStorage, isGuestMode, showNotification, showConfirm } = useContext(AppContext);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1116,6 +1146,11 @@ const CrudPage = ({ title, data, setData, collectionName, fieldsConfig }) => {
     const [loading, setLoading] = useState(false);
     // Definir la variable dragging como un estado local para evitar errores de referencia
     const [dragging, setDragging] = useState(false);
+    const [viewMode, setViewMode] = useState('list'); // 'list' o 'compact'
+    
+    // Referencias para el drag and drop
+    const dragItem = useRef(null);
+    const dragOverItem = useRef(null);
 
     const handleAdd = () => { setCurrentItem(null); setIsModalOpen(true); };
     const handleEdit = (item) => { setCurrentItem(item); setIsModalOpen(true); };
@@ -1270,10 +1305,17 @@ const validateFormData = (data, fieldsConfig) => {
     const handleDragStart = (e, position) => {
         dragItem.current = position;
         setDragging(true);
+        e.dataTransfer.effectAllowed = 'move';
     };
 
     const handleDragEnter = (e, position) => {
         dragOverItem.current = position;
+        e.preventDefault();
+    };
+
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
     };
 
     const handleDragEnd = () => {
@@ -1306,6 +1348,8 @@ const validateFormData = (data, fieldsConfig) => {
             });
             batch.commit().catch(err => console.error("Error al reordenar:", err));
         }
+        
+        showNotification('Elementos reordenados correctamente', 'success');
     };
     
     const handleRepeatPreviousMonth = async () => {
@@ -1395,38 +1439,191 @@ const validateFormData = (data, fieldsConfig) => {
 
     return (
         <div className="p-4 sm:p-8">
-            <div className="flex justify-end items-center mb-6 gap-4">
-                {(collectionName === 'ingresos' || collectionName === 'gastos') && (
-                    <button onClick={handleRepeatPreviousMonth} className="bg-primary/80 text-white font-bold py-2 px-4 rounded-lg hover:bg-primary/60 transition-colors flex items-center gap-2" title="Repetir Mes Anterior">
-                        <icons.repeat className="w-5 h-5"/> <span className="hidden sm:inline">Repetir</span>
-                    </button>
-                )}
-                <button onClick={handleAdd} className="bg-primary text-white font-bold py-2 px-4 rounded-lg hover:bg-primary/80 transition-colors">
-                    Agregar {title.slice(0, -1)}
-                </button>
-            </div>
-            <div className="bg-background-secondary rounded-xl shadow-lg border border-border-color overflow-hidden">
-                {data && data.length > 0 ? data.map((item, index) => (
-                    <div
-                        key={item.id}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, index)}
-                        onDragEnter={(e) => handleDragEnter(e, index)}
-                        onDragEnd={handleDragEnd}
-                        onDragOver={(e) => e.preventDefault()}
-                        className={`p-4 flex justify-between items-center border-b border-border-color last:border-b-0 cursor-grab transition-shadow ${dragging && dragItem.current === index ? 'shadow-2xl bg-background-terciario opacity-50' : ''}`}
-                    >
-                        <div>
-                            <p className="font-semibold text-text-primary">{item.description}</p>
-                            <p className="text-sm text-text-secondary">{item.category || (item.date && new Date(item.date.seconds * 1000).toLocaleDateString())}</p>
+            <div className="flex justify-between items-center mb-6 gap-4">
+                <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-semibold text-text-primary">
+                        {title} ({data.length})
+                    </h2>
+                    {data.length > 1 && (
+                        <div className="text-xs text-text-secondary bg-background-primary px-2 py-1 rounded-full border border-border-color">
+                            Arrastra para reordenar
                         </div>
-                        <div className="flex items-center gap-4">
-                            <span className={`font-bold text-lg ${collectionName === 'ingresos' ? 'text-accent-green' : 'text-accent-magenta'}`}>{formatCurrency(item.amount, currency, dolarMep)}</span>
-                            <button onClick={() => handleEdit(item)} className="text-text-secondary hover:text-primary"><icons.edit className="w-5 h-5"/></button>
-                            <button onClick={() => handleDelete(item.id)} className="text-text-secondary hover:text-accent-magenta"><icons.trash className="w-5 h-5"/></button>
-                        </div>
+                    )}
+                </div>
+                <div className="flex items-center gap-4">
+                    {/* Selector de vista */}
+                    <div className="flex bg-background-primary border border-border-color rounded-lg p-1">
+                        <button
+                            onClick={() => setViewMode('list')}
+                            className={`px-3 py-1 rounded-md text-sm transition-colors duration-200 ${
+                                viewMode === 'list' 
+                                    ? 'bg-primary text-white' 
+                                    : 'text-text-secondary hover:text-text-primary'
+                            }`}
+                            title="Vista de lista"
+                        >
+                            Lista
+                        </button>
+                        <button
+                            onClick={() => setViewMode('compact')}
+                            className={`px-3 py-1 rounded-md text-sm transition-colors duration-200 ${
+                                viewMode === 'compact' 
+                                    ? 'bg-primary text-white' 
+                                    : 'text-text-secondary hover:text-text-primary'
+                            }`}
+                            title="Vista compacta"
+                        >
+                            Compacta
+                        </button>
                     </div>
-                )) : <p className="p-4 text-center text-text-secondary">No hay {title.toLowerCase()} registrados.</p>}
+                    
+                    {(collectionName === 'ingresos' || collectionName === 'gastos') && (
+                        <button onClick={handleRepeatPreviousMonth} className="bg-primary/80 text-white font-bold py-2 px-4 rounded-lg hover:bg-primary/60 transition-colors flex items-center gap-2" title="Repetir Mes Anterior">
+                            <icons.repeat className="w-5 h-5"/> <span className="hidden sm:inline">Repetir</span>
+                        </button>
+                    )}
+                    <button onClick={handleAdd} className="bg-primary text-white font-bold py-2 px-4 rounded-lg hover:bg-primary/80 transition-colors">
+                        Agregar {title.slice(0, -1)}
+                    </button>
+                </div>
+            </div>
+            <div className={`bg-background-secondary rounded-xl shadow-lg border border-border-color overflow-hidden ${
+                viewMode === 'compact' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-0' : ''
+            }`}>
+                {data && data.length > 0 ? data.map((item, index) => (
+                    viewMode === 'list' ? (
+                        // Vista de lista normal
+                        <div
+                            key={item.id}
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, index)}
+                            onDragEnter={(e) => handleDragEnter(e, index)}
+                            onDragEnd={handleDragEnd}
+                            onDragOver={handleDragOver}
+                            className={`group relative p-4 flex justify-between items-center border-b border-border-color last:border-b-0 transition-all duration-200 ${
+                                dragging && dragItem.current === index 
+                                    ? 'scale-105 shadow-2xl bg-primary/10 border-primary/30 opacity-90 transform rotate-1' 
+                                    : 'hover:bg-background-primary/50 cursor-grab active:cursor-grabbing'
+                            } ${
+                                dragging && dragOverItem.current === index && dragItem.current !== index
+                                    ? 'border-t-2 border-t-primary bg-primary/5'
+                                    : ''
+                            }`}
+                        >
+                            {/* Indicador visual de drag */}
+                            <div className="absolute left-2 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-60 transition-opacity duration-200 text-text-secondary">
+                                <CustomTooltip text="Arrastra para reordenar" position="right">
+                                    <icons.gripVertical className="w-4 h-4" />
+                                </CustomTooltip>
+                            </div>
+                            
+                            <div className="flex-1 ml-6">
+                                <p className="font-semibold text-text-primary group-hover:text-primary transition-colors duration-200">
+                                    {item.description}
+                                </p>
+                                <p className="text-sm text-text-secondary">
+                                    {item.category || (item.date && new Date(item.date.seconds * 1000).toLocaleDateString())}
+                                </p>
+                            </div>
+                            
+                            <div className="flex items-center gap-4">
+                                <span className={`font-bold text-lg transition-colors duration-200 ${
+                                    collectionName === 'ingresos' ? 'text-accent-green' : 'text-accent-magenta'
+                                } ${dragging && dragItem.current === index ? 'text-primary' : ''}`}>
+                                    {formatCurrency(item.amount, currency, dolarMep)}
+                                </span>
+                                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                    <button 
+                                        onClick={() => handleEdit(item)} 
+                                        className="p-2 text-text-secondary hover:text-primary hover:bg-primary/10 rounded-lg transition-all duration-200"
+                                        title="Editar"
+                                    >
+                                        <icons.edit className="w-4 h-4"/>
+                                    </button>
+                                    <button 
+                                        onClick={() => handleDelete(item.id)} 
+                                        className="p-2 text-text-secondary hover:text-accent-magenta hover:bg-accent-magenta/10 rounded-lg transition-all duration-200"
+                                        title="Eliminar"
+                                    >
+                                        <icons.trash className="w-4 h-4"/>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            {/* Indicador de posición durante drag */}
+                            {dragging && dragOverItem.current === index && dragItem.current !== index && (
+                                <div className="absolute -top-1 left-0 right-0 h-0.5 bg-primary rounded-full animate-pulse"></div>
+                            )}
+                        </div>
+                    ) : (
+                        // Vista compacta (tarjetas)
+                        <div
+                            key={item.id}
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, index)}
+                            onDragEnter={(e) => handleDragEnter(e, index)}
+                            onDragEnd={handleDragEnd}
+                            onDragOver={handleDragOver}
+                            className={`group relative p-4 border border-border-color transition-all duration-200 ${
+                                dragging && dragItem.current === index 
+                                    ? 'scale-105 shadow-2xl bg-primary/10 border-primary z-10' 
+                                    : 'hover:bg-background-primary/50 cursor-grab active:cursor-grabbing hover:shadow-md'
+                            } ${
+                                dragging && dragOverItem.current === index && dragItem.current !== index
+                                    ? 'border-primary bg-primary/5'
+                                    : ''
+                            }`}
+                        >
+                            {/* Indicador de drag para vista compacta */}
+                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-60 transition-opacity duration-200 text-text-secondary">
+                                <CustomTooltip text="Arrastra para reordenar" position="left">
+                                    <icons.gripVertical className="w-4 h-4" />
+                                </CustomTooltip>
+                            </div>
+                            
+                            <div className="mb-3">
+                                <p className="font-semibold text-text-primary group-hover:text-primary transition-colors duration-200 text-sm line-clamp-2">
+                                    {item.description}
+                                </p>
+                                <p className="text-xs text-text-secondary mt-1">
+                                    {item.category || (item.date && new Date(item.date.seconds * 1000).toLocaleDateString())}
+                                </p>
+                            </div>
+                            
+                            <div className="flex justify-between items-center">
+                                <span className={`font-bold text-sm ${
+                                    collectionName === 'ingresos' ? 'text-accent-green' : 'text-accent-magenta'
+                                }`}>
+                                    {formatCurrency(item.amount, currency, dolarMep)}
+                                </span>
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                    <button 
+                                        onClick={() => handleEdit(item)} 
+                                        className="p-1 text-text-secondary hover:text-primary hover:bg-primary/10 rounded transition-all duration-200"
+                                        title="Editar"
+                                    >
+                                        <icons.edit className="w-3 h-3"/>
+                                    </button>
+                                    <button 
+                                        onClick={() => handleDelete(item.id)} 
+                                        className="p-1 text-text-secondary hover:text-accent-magenta hover:bg-accent-magenta/10 rounded transition-all duration-200"
+                                        title="Eliminar"
+                                    >
+                                        <icons.trash className="w-3 h-3"/>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )
+                )) : (
+                    <div className="p-8 text-center text-text-secondary">
+                        <div className="mb-4 opacity-50">
+                            {icons[collectionName] && React.createElement(icons[collectionName], { className: "w-16 h-16 mx-auto" })}
+                        </div>
+                        <p className="text-lg font-medium mb-2">No hay {title.toLowerCase()} registrados</p>
+                        <p className="text-sm">Comienza agregando tu primer {title.slice(0, -1).toLowerCase()}</p>
+                    </div>
+                )}
             </div>
             {isModalOpen && <CrudModal item={currentItem} onClose={() => setIsModalOpen(false)} onSave={handleSaveWrapper} title={title} fieldsConfig={fieldsConfig} loading={loading} />}
         </div>
@@ -1728,6 +1925,40 @@ function AppContent() {
                 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
                 .animate-slide-in-right { animation: slideInRight 0.3s ease-out; }
                 @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+                
+                /* Drag and Drop Animations */
+                .animate-drag-lift { animation: dragLift 0.2s ease-out; }
+                @keyframes dragLift { 
+                    from { transform: scale(1) rotate(0deg); box-shadow: 0 2px 4px rgba(0,0,0,0.1); } 
+                    to { transform: scale(1.02) rotate(1deg); box-shadow: 0 8px 24px rgba(0,0,0,0.2); } 
+                }
+                
+                .animate-drag-hover { animation: dragHover 0.3s ease-in-out infinite alternate; }
+                @keyframes dragHover { 
+                    from { transform: translateY(0px); } 
+                    to { transform: translateY(-2px); } 
+                }
+                
+                .animate-drop-zone { animation: dropZone 0.5s ease-in-out infinite; }
+                @keyframes dropZone { 
+                    0%, 100% { border-color: var(--color-primary); background-color: rgba(var(--color-primary-rgb), 0.05); }
+                    50% { border-color: var(--color-accent-cyan); background-color: rgba(var(--color-accent-cyan-rgb), 0.1); }
+                }
+                
+                .drag-ghost { 
+                    opacity: 0.7; 
+                    transform: rotate(5deg) scale(1.05); 
+                    z-index: 1000; 
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.3); 
+                }
+                
+                .line-clamp-2 {
+                    display: -webkit-box;
+                    -webkit-line-clamp: 2;
+                    -webkit-box-orient: vertical;
+                    overflow: hidden;
+                }
+                
                 .transition-width { transition: width 0.5s ease-in-out; }
                 ::-webkit-scrollbar { width: 8px; }
                 ::-webkit-scrollbar-track { background: var(--color-bg-terciary); }
