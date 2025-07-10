@@ -2,6 +2,18 @@
 
 Una elegante aplicación web para gestión de finanzas personales con dashboards interactivos, seguimiento de gastos, metas financieras y más.
 
+## 🔒 Seguridad
+
+**✅ CERTIFICADO SEGURO PARA PRODUCCIÓN**
+
+Este proyecto ha sido auditado completamente por seguridad. Ver [SECURITY.md](./SECURITY.md) para detalles.
+
+- 🛡️ Datos encriptados y protegidos
+- 🔐 Autenticación segura con Google
+- 🚫 Protección contra vulnerabilidades comunes
+- 🔒 Variables de entorno para credenciales
+- 📱 Modo invitado sin riesgos de seguridad
+
 ## ✨ Características
 
 - 📊 **Dashboard Interactivo** - Visualiza tu situación financiera de un vistazo

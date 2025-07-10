@@ -22,7 +22,7 @@ const refreshLocalStorageData = (collectionName, setData, selectedDate, isTimeSc
             });
         }
 
-        console.log('refreshLocalStorageData - Actualizando estado global con:', allData);
+
         setData(allData);
     };
 
@@ -53,22 +53,34 @@ const icons = {
 
 // --- HELPERS Y CONFIG ---
 const formatCurrency = (number = 0, targetCurrency = 'ARS', dolarMepRate = 1) => {
-    if (typeof number !== 'number' || isNaN(number)) {
-        console.error('formatCurrency - Número inválido:', number);
+    try {
+        // Validación de entrada más estricta
+        if (typeof number !== 'number' || isNaN(number) || !isFinite(number)) {
+            console.warn('formatCurrency - Número inválido:', number);
+            return '$ 0,00';
+        }
+
+        // Protección contra valores extremos
+        if (number < 0 || number > 999999999999) {
+            console.warn('formatCurrency - Número fuera de rango:', number);
+            return '$ 0,00';
+        }
+
+        // Solo multiplicar por dolarMepRate si la moneda no es ARS
+        const finalAmount = targetCurrency === 'ARS' ? number : number * Math.max(0, dolarMepRate);
+
+        const formattedNumber = new Intl.NumberFormat('es-AR', {
+            style: 'currency',
+            currency: targetCurrency,
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(finalAmount);
+
+        return formattedNumber;
+    } catch (error) {
+        console.error('Error en formatCurrency:', error);
         return '$ 0,00';
     }
-
-    // Solo multiplicar por dolarMepRate si la moneda no es ARS
-    const finalAmount = targetCurrency === 'ARS' ? number : number * dolarMepRate;
-
-    const formattedNumber = new Intl.NumberFormat('es-AR', {
-        style: 'currency',
-        currency: targetCurrency,
-        minimumFractionDigits: 2
-    }).format(finalAmount);
-
-    console.log('formatCurrency - Número formateado:', formattedNumber);
-    return formattedNumber;
 };
 
 // Configuración de Firebase desde variables de entorno o fallback vacío
@@ -98,6 +110,12 @@ const AppProvider = ({ children }) => {
     const [isPrivacyMode, setIsPrivacyMode] = useState(false);
     const [dashboardLayout, setDashboardLayout] = useState(['netoTotal', 'flujoMensual', 'gastosMes', 'metas']);
     const [isGuestMode, setIsGuestMode] = useState(false);
+    
+    // Sistema de notificaciones
+    const [notification, setNotification] = useState(null);
+    
+    // Sistema de confirmación
+    const [confirmModal, setConfirmModal] = useState(null);
     
     const [db, setDb] = useState(null);
     const [auth, setAuth] = useState(null);
@@ -180,13 +198,13 @@ const AppProvider = ({ children }) => {
             }
 
             data.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-            console.log(`Modo invitado - Actualizando estado para ${collectionName}:`, data);
+
             setData(data);
             return () => {};
         }
 
         if (!db || !userId) {
-            console.log(`No hay db o userId para ${collectionName}, inicializando con array vacío`);
+
             setData([]);
             return () => {};
         }
@@ -203,12 +221,12 @@ const AppProvider = ({ children }) => {
         } else {
              q = query(collection(db, `artifacts/${appId}/users/${userId}/${collectionName}`));
         }
-        console.log(`Ejecutando consulta Firebase para ${collectionName}:`, q);
+
         return onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            console.log(`Datos recuperados de Firebase para ${collectionName}:`, data);
+
             data.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-            console.log(`Actualizando estado para ${collectionName} con datos de Firebase:`, data);
+
             setData(data);
         }, (error) => console.error(`Error en ${collectionName}:`, error));
     };
@@ -221,7 +239,7 @@ const AppProvider = ({ children }) => {
 
     // Agregar registro de depuración para verificar los datos de metas
     useEffect(() => {
-        console.log('Datos de metas actualizados:', metas);
+
     }, [metas]);
 
     useEffect(() => {
@@ -242,6 +260,36 @@ const AppProvider = ({ children }) => {
         await setDoc(settingsRef, newSettings, { merge: true });
     };
 
+    // Funciones para el sistema de notificaciones
+    const showNotification = (message, type = 'info', duration = 5000) => {
+        setNotification({ message, type, id: Date.now() });
+        if (duration > 0) {
+            setTimeout(() => setNotification(null), duration);
+        }
+    };
+
+    const hideNotification = () => {
+        setNotification(null);
+    };
+
+    // Funciones para el sistema de confirmación
+    const showConfirm = (message, title = "Confirmar acción") => {
+        return new Promise((resolve) => {
+            setConfirmModal({
+                title,
+                message,
+                onConfirm: () => {
+                    setConfirmModal(null);
+                    resolve(true);
+                },
+                onClose: () => {
+                    setConfirmModal(null);
+                    resolve(false);
+                }
+            });
+        });
+    };
+
     const value = {
         page, setPage, theme, setTheme, currency, setCurrency, dolarMep, setDolarMep,
         selectedDate, setSelectedDate, db, auth, userId, appId, useLocalStorage,
@@ -249,7 +297,11 @@ const AppProvider = ({ children }) => {
         setIngresos, setGastos, setDeudas, setInversiones, setMetas,
         isPrivacyMode, setIsPrivacyMode, dashboardLayout, setDashboardLayout,
         presupuestos, setPresupuestos, habilidades, setHabilidades,
-        isGuestMode, setIsGuestMode
+        isGuestMode, setIsGuestMode,
+        // Sistema de notificaciones
+        showNotification, hideNotification, notification,
+        // Sistema de confirmación
+        showConfirm, confirmModal
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
@@ -257,16 +309,110 @@ const AppProvider = ({ children }) => {
 
 // --- COMPONENTES ---
 
+// Componente de Notificación Personalizada
+const NotificationModal = () => {
+    const { notification, hideNotification } = useContext(AppContext);
+    const [isVisible, setIsVisible] = useState(false);
+
+    useEffect(() => {
+        if (notification) {
+            setIsVisible(true);
+        } else {
+            setIsVisible(false);
+        }
+    }, [notification]);
+
+    if (!notification) return null;
+
+    const getIcon = () => {
+        switch (notification.type) {
+            case 'success': return '✅';
+            case 'error': return '❌';
+            case 'warning': return '⚠️';
+            default: return 'ℹ️';
+        }
+    };
+
+    const getColorClasses = () => {
+        switch (notification.type) {
+            case 'success': return 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200';
+            case 'error': return 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200';
+            case 'warning': return 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200';
+            default: return 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200';
+        }
+    };
+
+    return (
+        <div className={`fixed top-4 right-4 z-50 transition-all duration-300 transform ${isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}>
+            <div className={`
+                max-w-md p-4 rounded-lg border-2 shadow-lg backdrop-blur-sm
+                ${getColorClasses()}
+                animate-slide-in-right
+            `}>
+                <div className="flex items-start gap-3">
+                    <span className="text-2xl flex-shrink-0 mt-0.5">{getIcon()}</span>
+                    <div className="flex-1">
+                        <p className="font-medium text-sm leading-relaxed">{notification.message}</p>
+                    </div>
+                    <button 
+                        onClick={hideNotification}
+                        className="flex-shrink-0 ml-2 opacity-70 hover:opacity-100 transition-opacity"
+                    >
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Componente de Confirmación Personalizada
+const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, confirmText = "Confirmar", cancelText = "Cancelar" }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-background-secondary rounded-2xl shadow-2xl p-6 w-full max-w-md border-2 border-primary/50">
+                <div className="text-center">
+                    <div className="mb-4">
+                        <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <icons.warning className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
+                        </div>
+                        <h3 className="text-xl font-bold text-text-primary mb-2">{title}</h3>
+                        <p className="text-text-secondary">{message}</p>
+                    </div>
+                    <div className="flex gap-3 justify-center">
+                        <button
+                            onClick={onClose}
+                            className="px-6 py-2 bg-background-terciary text-text-secondary rounded-lg hover:bg-background-primary transition-colors border border-border-color"
+                        >
+                            {cancelText}
+                        </button>
+                        <button
+                            onClick={onConfirm}
+                            className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                        >
+                            {confirmText}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const WelcomeScreen = () => {
-    const { auth, setIsGuestMode } = useContext(AppContext);
+    const { auth, setIsGuestMode, showNotification } = useContext(AppContext);
     const [typedTitle, setTypedTitle] = useState('');
     const [typedSlogan, setTypedSlogan] = useState('');
     const slogans = [
-        "Tu universo financiero, en orden.",
-        "Donde tus metas se convierten en constelaciones.",
-        "Navega el cosmos de tus finanzas.",
-        "La elegancia de la prosperidad.",
-        "Crea tu propia galaxia de abundancia."
+        "Planifica. Ejecuta. Prospera.",
+        "Tu camino claro hacia la abundancia.",
+        "Administra hoy tu futuro financiero.",
+        "Objetivos definidos. Resultados reales.",
+        "Tu universo financiero, en orden."
     ];
     const fullTitle = "Nebula";
 
@@ -277,7 +423,7 @@ const WelcomeScreen = () => {
             console.log("Autenticación con Google exitosa.");
         } catch (error) {
             console.error("Error al iniciar sesión con Google:", error);
-            alert("No se pudo iniciar sesión con Google. Por favor, verifica tu conexión y configuración.");
+            showNotification("No se pudo iniciar sesión con Google. Por favor, verifica tu conexión y configuración.", "error");
         }
     };
 
@@ -389,26 +535,27 @@ const WelcomeScreen = () => {
             Object.keys(sampleData).forEach(key => {
                 if (!localStorage.getItem(key)) {
                     localStorage.setItem(key, JSON.stringify(sampleData[key]));
-                    console.log(`Datos de ejemplo creados para ${key}`);
+                    // Datos de ejemplo creados
+                    // Datos de ejemplo creados para ${key}
                 }
             });
 
-            console.log("Modo invitado activado con localStorage y datos de ejemplo.");
+
             return;
         }
 
         if (!auth) {
             console.error("Firebase no está inicializado para el modo invitado.");
-            alert("No se pudo activar el modo invitado. Verifica la configuración de Firebase.");
+            showNotification("No se pudo activar el modo invitado. Verifica la configuración de Firebase.", "error");
             return;
         }
 
         try {
             await signInAnonymously(auth);
-            console.log("Modo invitado activado con Firebase.");
+
         } catch (error) {
             console.error("Error al iniciar sesión como invitado:", error);
-            alert("No se pudo activar el modo invitado. Por favor, verifica tu conexión y configuración.");
+            showNotification("No se pudo activar el modo invitado. Por favor, verifica tu conexión y configuración.", "error");
         }
     };
 
@@ -463,20 +610,26 @@ const WelcomeScreen = () => {
     }, []);
 
     return (
-        <div className="bg-background-primary min-h-screen flex flex-col justify-center items-center text-center p-4 transition-opacity duration-1000 animated-gradient">
-            <h1 id="nebula-title" className="text-7xl md:text-9xl font-serif text-amber-400 mb-4" style={{ fontFamily: "'Playfair Display', serif", textShadow: '0 0 15px rgba(250, 190, 88, 0.5)' }}>{typedTitle}</h1>
-            <p className="text-gray-300 text-lg md:text-2xl h-8 mb-8">{typedSlogan}<span className="animate-ping">|</span></p>
-            <div className="bg-background-secondary/20 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-white/20 animate-fade-in">
-                <div className="flex flex-col gap-4">
-                     <button onClick={handleGoogleSignIn} className="bg-white text-gray-800 font-bold py-3 px-8 rounded-lg text-lg hover:bg-gray-200 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105 flex items-center justify-center gap-3">
-                        <icons.google className="w-6 h-6"/>
-                        Ingresar con Google
-                    </button>
-                     <button onClick={handleGuestSignIn} className="bg-white/10 border border-white/20 text-white font-bold py-3 px-8 rounded-lg text-lg hover:bg-white/20 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105">
-                        Ingresar como Invitado
-                    </button>
+        <div className="relative min-h-screen overflow-hidden">
+            <div className="parallax">
+                <div className="stars layer1"></div>
+                <div className="stars layer2"></div>
+            </div>
+            <div className="relative min-h-screen flex flex-col justify-center items-center text-center p-4 transition-opacity duration-1000">
+                <h1 id="nebula-title" className="text-7xl md:text-9xl font-serif text-amber-400 mb-4" style={{ fontFamily: "'Playfair Display', serif", textShadow: '0 0 15px rgba(250, 190, 88, 0.5)' }}>{typedTitle}</h1>
+                <p className="text-gray-300 text-lg md:text-2xl h-8 mb-8">{typedSlogan}<span className="animate-ping">|</span></p>
+                <div className="bg-background-secondary/20 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-white/20 animate-fade-in">
+                    <div className="flex flex-col gap-4">
+                         <button onClick={handleGoogleSignIn} className="bg-white text-gray-800 font-bold py-3 px-8 rounded-lg text-lg hover:bg-gray-200 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105 flex items-center justify-center gap-3">
+                            <icons.google className="w-6 h-6"/>
+                            Ingresar con Google
+                        </button>
+                         <button onClick={handleGuestSignIn} className="bg-white/10 border border-white/20 text-white font-bold py-3 px-8 rounded-lg text-lg hover:bg-white/20 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105">
+                            Ingresar como Invitado
+                        </button>
+                    </div>
+                     <p className="text-xs text-white/50 mt-4 max-w-xs mx-auto">Al ingresar como invitado, tus datos se guardarán solo en este dispositivo y no estarán disponibles en la nube.</p>
                 </div>
-                 <p className="text-xs text-white/50 mt-4 max-w-xs mx-auto">Al ingresar como invitado, tus datos se guardarán solo en este dispositivo y no estarán disponibles en la nube.</p>
             </div>
         </div>
     );
@@ -491,7 +644,7 @@ const PrivacyNumber = ({ value }) => {
 };
 
 const Dashboard = () => {
-    const { isPrivacyMode, setIsPrivacyMode, theme, setTheme, dashboardLayout, setDashboardLayout, saveSettings, selectedDate } = useContext(AppContext);
+    const { isPrivacyMode, setIsPrivacyMode, theme, setTheme, dashboardLayout, setDashboardLayout, saveSettings, selectedDate, showNotification, showConfirm } = useContext(AppContext);
     const [isCustomizeModalOpen, setIsCustomizeModalOpen] = useState(false);
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
@@ -536,15 +689,13 @@ const Dashboard = () => {
 
     return (
         <div className="p-4 sm:p-8">
-            <div className="flex justify-between items-center mb-6">
-                 <div>
-                    <h1 className="text-3xl font-bold text-text-primary">Dashboard</h1>
-                    <button onClick={() => setIsCalendarOpen(true)} className="flex items-center gap-2 text-text-secondary bg-background-secondary border border-border-color rounded-lg px-3 py-1 shadow-sm hover:shadow-md hover:text-primary transform hover:-translate-y-0.5 transition-all duration-200 mt-1">
-                        <icons.calendar className="w-5 h-5"/>
-                        <span>{new Date(selectedDate.year, selectedDate.month).toLocaleString('es-AR', { month: 'long', year: 'numeric' })}</span>
-                    </button>
-                </div>
-                <div className="flex items-center gap-2">
+            <div className="text-center mb-6">
+                <h1 className="text-3xl font-bold text-text-primary mb-4">Dashboard</h1>
+                <button onClick={() => setIsCalendarOpen(true)} className="flex items-center gap-2 text-text-secondary bg-background-secondary border border-border-color rounded-lg px-3 py-1 shadow-sm hover:shadow-md hover:text-primary transform hover:-translate-y-0.5 transition-all duration-200 mx-auto mb-4">
+                    <icons.calendar className="w-5 h-5"/>
+                    <span>{new Date(selectedDate.year, selectedDate.month).toLocaleString('es-AR', { month: 'long', year: 'numeric' })}</span>
+                </button>
+                <div className="flex items-center justify-center gap-2">
                     <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="text-text-secondary hover:text-primary transition-colors p-2" title="Cambiar Tema">
                         {theme === 'dark' ? <icons.sun className="w-6 h-6 text-yellow-500" /> : <icons.moon className="w-6 h-6 text-blue-500" />}
                     </button>
@@ -556,6 +707,7 @@ const Dashboard = () => {
                     </button>
                 </div>
             </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
                 {dashboardLayout.map((widgetId, index) => (
                     <div key={widgetId}
@@ -633,32 +785,9 @@ const InversionesWidget = () => {
 };
 const MetasWidget = () => {
     const { metas, currency, dolarMep } = useContext(AppContext);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        if (metas.length > 0) {
-            setLoading(false);
-        }
-    }, [metas]);
-
-    if (loading) {
-        return <p className="text-text-secondary text-sm">Cargando metas...</p>;
-    }
-
-    console.log('MetasWidget - Renderizando con estado global metas:', metas);
 
     // Filtrar metas con valores válidos
     const validMetas = metas.filter(meta => meta.currentAmount >= 0 && meta.targetAmount > 0);
-    console.log('MetasWidget - Metas válidas:', validMetas);
-
-    validMetas.forEach(meta => {
-        console.log('MetasWidget - Meta antes de renderizar GoalProgress:', {
-            id: meta.id,
-            description: meta.description,
-            currentAmount: meta.currentAmount,
-            targetAmount: meta.targetAmount
-        });
-    });
 
     return (
         <div className="bg-background-secondary p-6 rounded-xl shadow-lg border border-border-color h-full">
@@ -667,7 +796,13 @@ const MetasWidget = () => {
                 {validMetas.length > 0 ? validMetas.slice(0, 2).map(meta => (
                     <GoalProgress key={meta.id} meta={meta} currency={currency} dolarMep={dolarMep} />
                 )) : (
-                    <p className="text-text-secondary text-sm">Aún no has agregado metas.</p>
+                    <div className="text-center py-8">
+                        <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <icons.metas className="w-8 h-8 text-primary" />
+                        </div>
+                        <p className="text-text-secondary text-sm mb-2">No hay metas cargadas aún</p>
+                        <p className="text-text-secondary text-xs opacity-75">Ve a la sección Metas para agregar tus objetivos financieros</p>
+                    </div>
                 )}
             </div>
         </div>
@@ -785,13 +920,6 @@ const Card = ({ title, value, detail, color }) => (
 
 const GoalProgress = ({ meta, currency, dolarMep }) => {
     const progress = meta.targetAmount > 0 ? (meta.currentAmount / meta.targetAmount) * 100 : 0;
-    console.log('GoalProgress - Meta recibida:', meta);
-    console.log('GoalProgress - Valores para formatCurrency:', {
-        currentAmount: meta.currentAmount,
-        targetAmount: meta.targetAmount,
-        currency,
-        dolarMep
-    });
     return (
         <div>
             <div className="flex justify-between mb-1">
@@ -874,16 +1002,16 @@ const CrudModal = ({ item, onClose, onSave, title, fieldsConfig, loading }) => {
 };
 
 const Settings = () => {
-    const { auth, ingresos, gastos, deudas, inversiones, metas } = useContext(AppContext);
+    const { auth, ingresos, gastos, deudas, inversiones, metas, showNotification } = useContext(AppContext);
 
     const handleLogout = async () => {
         if (auth) {
             try {
                 await auth.signOut();
-                alert("Sesión cerrada exitosamente.");
+                showNotification("Sesión cerrada exitosamente.", "success");
             } catch (error) {
                 console.error("Error al cerrar sesión:", error);
-                alert("No se pudo cerrar la sesión. Por favor, intenta nuevamente.");
+                showNotification("No se pudo cerrar la sesión. Por favor, intenta nuevamente.", "error");
             }
         }
     };
@@ -915,7 +1043,9 @@ const Settings = () => {
 
     return (
         <div className="p-4 sm:p-8">
-            <h1 className="text-3xl font-bold mb-6 text-text-primary">Configuración</h1>
+            <div className="text-center mb-6">
+                <h1 className="text-3xl font-bold text-text-primary">Configuración</h1>
+            </div>
             <div className="space-y-8 max-w-2xl">
                 <div className="bg-background-secondary p-6 rounded-xl shadow-lg border border-border-color">
                     <h2 className="text-xl font-semibold mb-4 text-text-primary">Cerrar Sesión</h2>
@@ -961,7 +1091,7 @@ const Dock = () => {
 };
 
 const CrudPage = ({ title, data, setData, collectionName, fieldsConfig }) => {
-    const { db, userId, appId, selectedDate, currency, dolarMep, useLocalStorage, isGuestMode } = useContext(AppContext);
+    const { db, userId, appId, selectedDate, currency, dolarMep, useLocalStorage, isGuestMode, showNotification, showConfirm } = useContext(AppContext);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentItem, setCurrentItem] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -971,40 +1101,49 @@ const CrudPage = ({ title, data, setData, collectionName, fieldsConfig }) => {
     const handleAdd = () => { setCurrentItem(null); setIsModalOpen(true); };
     const handleEdit = (item) => { setCurrentItem(item); setIsModalOpen(true); };
     const handleDelete = async (id) => {
-        console.log('Intentando eliminar elemento con ID:', id);
-        if (window.confirm('¿Estás seguro de que quieres eliminar este elemento?')) {
-            setLoading(true);
-            setIsModalOpen(false); // Cerrar el modal inmediatamente
 
-            if (isGuestMode && useLocalStorage) {
-                console.log('Modo invitado activado, usando localStorage.');
-                const storageKey = `nebula-${collectionName}`;
-                const storedData = localStorage.getItem(storageKey);
-                let allData = storedData ? JSON.parse(storedData) : [];
+        
+        try {
+            const confirmed = await showConfirm('¿Estás seguro de que quieres eliminar este elemento?', 'Confirmar eliminación');
+            
+            if (confirmed) {
+                setLoading(true);
+                setIsModalOpen(false);
 
-                allData = allData.filter(item => item.id !== id);
-                localStorage.setItem(storageKey, JSON.stringify(allData));
+                if (isGuestMode && useLocalStorage) {
+                    const storageKey = `nebula-${collectionName}`;
+                    const storedData = localStorage.getItem(storageKey);
+                    let allData = storedData ? JSON.parse(storedData) : [];
 
-                console.log('Datos actualizados en localStorage:', allData);
-                setData(allData);
-            } else {
-                if (!db || !userId) {
-                    console.error('No se puede eliminar: db o userId no están definidos.');
-                    setLoading(false);
-                    return;
+                    allData = allData.filter(item => item.id !== id);
+                    localStorage.setItem(storageKey, JSON.stringify(allData));
+
+                    setData(allData);
+                    showNotification('Elemento eliminado correctamente', 'success');
+                } else {
+                    if (!db || !userId) {
+                        console.error('❌ No se puede eliminar: db o userId no están definidos.');
+                        showNotification('Error: No se pudo conectar a la base de datos', 'error');
+                        setLoading(false);
+                        return;
+                    }
+                    try {
+                        const docRef = doc(db, `artifacts/${appId}/users/${userId}/${collectionName}`, id);
+                        await deleteDoc(docRef);
+
+                        const updatedData = data.filter(item => item.id !== id);
+                        setData(updatedData);
+                        showNotification('Elemento eliminado correctamente', 'success');
+                    } catch (error) {
+                        console.error('❌ Error al eliminar el elemento:', error);
+                        showNotification('Error al eliminar el elemento', 'error');
+                    }
                 }
-                try {
-                    const docRef = doc(db, `artifacts/${appId}/users/${userId}/${collectionName}`, id);
-                    await deleteDoc(docRef);
-                    console.log('Elemento eliminado de Firebase con éxito.');
-
-                    // Actualizar el estado local tras eliminar
-                    const updatedData = data.filter(item => item.id !== id);
-                    setData(updatedData);
-                } catch (error) {
-                    console.error('Error al eliminar el elemento:', error);
-                }
+                setLoading(false);
             }
+        } catch (error) {
+            console.error('❌ Error en handleDelete:', error);
+            showNotification('Error inesperado al eliminar', 'error');
             setLoading(false);
         }
     };
@@ -1042,7 +1181,7 @@ const CrudPage = ({ title, data, setData, collectionName, fieldsConfig }) => {
             localStorage.setItem(storageKey, JSON.stringify(allData));
             
             // Actualizar el estado local
-            console.log('handleSave - Actualizando estado local con:', allData);
+
             refreshLocalStorageData(collectionName, setData, selectedDate, collectionName === 'ingresos' || collectionName === 'gastos');
         } else {
             if (!db || !userId) return;
@@ -1059,9 +1198,42 @@ const CrudPage = ({ title, data, setData, collectionName, fieldsConfig }) => {
         setCurrentItem(null);
     };
 
+    // Validación y sanitización de datos de entrada
+const sanitizeInput = (input) => {
+    if (typeof input !== 'string') return '';
+    return input.trim().slice(0, 1000); // Limitar longitud
+};
+
+const validateAmount = (amount) => {
+    const num = Number(amount);
+    return !isNaN(num) && isFinite(num) && num >= 0 && num <= 999999999999; // Límite razonable
+};
+
+const validateFormData = (data, fieldsConfig) => {
+    const validatedData = {};
+    
+    fieldsConfig.forEach(field => {
+        const value = data[field.name];
+        
+        if (field.type === 'currency') {
+            if (!validateAmount(value)) {
+                throw new Error(`Monto inválido para ${field.label}`);
+            }
+            validatedData[field.name] = Number(value);
+        } else {
+            const sanitized = sanitizeInput(value);
+            if (!sanitized && field.required !== false) {
+                throw new Error(`${field.label} es requerido`);
+            }
+            validatedData[field.name] = sanitized;
+        }
+    });
+    
+    return validatedData;
+};
+
     // Asegurar que los valores de currentAmount y paidAmount se actualicen correctamente
     const validateAndSave = (itemData, collectionName) => {
-        console.log('validateAndSave - Datos iniciales:', itemData);
         if (collectionName === 'metas') {
             itemData.currentAmount = itemData.currentAmount || 0;
             itemData.targetAmount = itemData.targetAmount || 0;
@@ -1069,7 +1241,6 @@ const CrudPage = ({ title, data, setData, collectionName, fieldsConfig }) => {
             itemData.paidAmount = itemData.paidAmount || 0;
             itemData.amount = itemData.amount || 0;
         }
-        console.log('validateAndSave - Datos validados:', itemData);
         handleSave(itemData);
     };
 
@@ -1119,7 +1290,8 @@ const CrudPage = ({ title, data, setData, collectionName, fieldsConfig }) => {
     };
     
     const handleRepeatPreviousMonth = async () => {
-        if (!window.confirm("¿Quieres copiar los datos del mes anterior? Los datos existentes no se borrarán.")) return;
+        const confirmed = await showConfirm("¿Quieres copiar los datos del mes anterior? Los datos existentes no se borrarán.", "Repetir mes anterior");
+        if (!confirmed) return;
 
         const prevMonthDate = new Date(selectedDate.year, selectedDate.month - 1, 15);
         const prevMonth = prevMonthDate.getMonth();
@@ -1142,7 +1314,7 @@ const CrudPage = ({ title, data, setData, collectionName, fieldsConfig }) => {
                 return itemDate >= startOfPrevMonth && itemDate <= endOfPrevMonth;
             });
         } else {
-            if (!db || !userId) return;
+                       if (!db || !userId) return;
             const startOfPrevMonth = new Date(prevYear, prevMonth, 1);
             const endOfPrevMonth = new Date(prevYear, prevMonth + 1, 0, 23, 59, 59);
 
@@ -1157,7 +1329,7 @@ const CrudPage = ({ title, data, setData, collectionName, fieldsConfig }) => {
         }
         
         if (prevMonthData.length === 0) {
-            alert("No se encontraron datos en el mes anterior.");
+            showNotification("No se encontraron datos en el mes anterior.", "warning");
             return;
         }
         
@@ -1199,23 +1371,20 @@ const CrudPage = ({ title, data, setData, collectionName, fieldsConfig }) => {
             await batch.commit();
         }
         
-        alert(`${prevMonthData.length} elementos copiados del mes anterior.`);
+        showNotification(`${prevMonthData.length} elementos copiados del mes anterior.`, "success");
     };
 
     return (
         <div className="p-4 sm:p-8">
-            <div className="flex justify-between items-center mb-6 gap-4">
-                <h1 className="text-3xl font-bold text-text-primary">{title}</h1>
-                <div className="flex gap-2">
-                    {(collectionName === 'ingresos' || collectionName === 'gastos') && (
-                        <button onClick={handleRepeatPreviousMonth} className="bg-primary/80 text-white font-bold py-2 px-4 rounded-lg hover:bg-primary/60 transition-colors flex items-center gap-2" title="Repetir Mes Anterior">
-                            <icons.repeat className="w-5 h-5"/> <span className="hidden sm:inline">Repetir</span>
-                        </button>
-                    )}
-                    <button onClick={handleAdd} className="bg-primary text-white font-bold py-2 px-4 rounded-lg hover:bg-primary/80 transition-colors">
-                        Agregar {title.slice(0, -1)}
+            <div className="flex justify-end items-center mb-6 gap-4">
+                {(collectionName === 'ingresos' || collectionName === 'gastos') && (
+                    <button onClick={handleRepeatPreviousMonth} className="bg-primary/80 text-white font-bold py-2 px-4 rounded-lg hover:bg-primary/60 transition-colors flex items-center gap-2" title="Repetir Mes Anterior">
+                        <icons.repeat className="w-5 h-5"/> <span className="hidden sm:inline">Repetir</span>
                     </button>
-                </div>
+                )}
+                <button onClick={handleAdd} className="bg-primary text-white font-bold py-2 px-4 rounded-lg hover:bg-primary/80 transition-colors">
+                    Agregar {title.slice(0, -1)}
+                </button>
             </div>
             <div className="bg-background-secondary rounded-xl shadow-lg border border-border-color overflow-hidden">
                 {data && data.length > 0 ? data.map((item, index) => (
@@ -1248,7 +1417,7 @@ const CrudPage = ({ title, data, setData, collectionName, fieldsConfig }) => {
 // --- COMPONENTES PRINCIPALES Y LAYOUT ---
 
 const MetasPage = () => {
-    const { metas, setMetas, currency, dolarMep, db, userId, appId, useLocalStorage, isGuestMode } = useContext(AppContext);
+    const { metas, setMetas, currency, dolarMep, db, userId, appId, useLocalStorage, isGuestMode, showConfirm, showNotification } = useContext(AppContext);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentItem, setCurrentItem] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -1263,45 +1432,53 @@ const MetasPage = () => {
     const handleEdit = (item) => { setCurrentItem(item); setIsModalOpen(true); };
     
     const handleDelete = async (id) => {
-        console.log('Intentando eliminar meta con ID:', id);
-        if (window.confirm('¿Estás seguro de que quieres eliminar esta meta?')) {
-            setLoading(true);
 
-            if (isGuestMode && useLocalStorage) {
-                console.log('Modo invitado activado, usando localStorage.');
-                const storageKey = 'nebula-metas';
-                const storedData = localStorage.getItem(storageKey);
-                let allData = storedData ? JSON.parse(storedData) : [];
+        
+        try {
+            const confirmed = await showConfirm('¿Estás seguro de que quieres eliminar esta meta?', 'Confirmar eliminación de meta');
+            
+            if (confirmed) {
+                setLoading(true);
 
-                allData = allData.filter(item => item.id !== id);
-                localStorage.setItem(storageKey, JSON.stringify(allData));
+                if (isGuestMode && useLocalStorage) {
+                    const storageKey = 'nebula-metas';
+                    const storedData = localStorage.getItem(storageKey);
+                    let allData = storedData ? JSON.parse(storedData) : [];
 
-                console.log('Datos actualizados en localStorage:', allData);
-                setMetas(allData);
-            } else {
-                if (!db || !userId) {
-                    console.error('No se puede eliminar: db o userId no están definidos.');
-                    setLoading(false);
-                    return;
+                    allData = allData.filter(item => item.id !== id);
+                    localStorage.setItem(storageKey, JSON.stringify(allData));
+
+                    setMetas(allData);
+                    showNotification('Meta eliminada correctamente', 'success');
+                } else {
+                    if (!db || !userId) {
+                        console.error('❌ No se puede eliminar: db o userId no están definidos.');
+                        showNotification('Error: No se pudo conectar a la base de datos', 'error');
+                        setLoading(false);
+                        return;
+                    }
+                    try {
+                        const docRef = doc(db, `artifacts/${appId}/users/${userId}/metas`, id);
+                        await deleteDoc(docRef);
+
+                        const updatedMetas = metas.filter(item => item.id !== id);
+                        setMetas(updatedMetas);
+                        showNotification('Meta eliminada correctamente', 'success');
+                    } catch (error) {
+                        console.error('❌ Error al eliminar la meta:', error);
+                        showNotification('Error al eliminar la meta', 'error');
+                    }
                 }
-                try {
-                    const docRef = doc(db, `artifacts/${appId}/users/${userId}/metas`, id);
-                    await deleteDoc(docRef);
-                    console.log('Meta eliminada de Firebase con éxito.');
-
-                    // Actualizar el estado local tras eliminar
-                    const updatedMetas = metas.filter(item => item.id !== id);
-                    setMetas(updatedMetas);
-                } catch (error) {
-                    console.error('Error al eliminar la meta:', error);
-                }
+                setLoading(false);
             }
+        } catch (error) {
+            console.error('❌ Error en handleDelete de metas:', error);
+            showNotification('Error inesperado al eliminar meta', 'error');
             setLoading(false);
         }
     };
 
     const handleSave = async (itemData) => {
-        console.log('Guardando meta:', itemData);
         setLoading(true);
         
         let dataToSave = { ...itemData };
@@ -1330,7 +1507,7 @@ const MetasPage = () => {
             }
             
             localStorage.setItem(storageKey, JSON.stringify(allData));
-            console.log('Meta guardada en localStorage:', allData);
+
             setMetas(allData);
         } else {
             if (!db || !userId) {
@@ -1341,13 +1518,13 @@ const MetasPage = () => {
                 if (currentItem) {
                     // Editar meta existente
                     await updateDoc(doc(db, `artifacts/${appId}/users/${userId}/metas`, currentItem.id), dataToSave);
-                    console.log('Meta actualizada en Firebase');
+
                 } else {
                     // Agregar nueva meta
                     const maxOrder = metas.reduce((max, item) => ((item.order ?? 0) > max ? item.order : max), -1);
                     dataToSave.order = maxOrder + 1;
                     await addDoc(collection(db, `artifacts/${appId}/users/${userId}/metas`), dataToSave);
-                    console.log('Meta agregada a Firebase');
+
                 }
             } catch (error) {
                 console.error('Error al guardar meta:', error);
@@ -1364,8 +1541,7 @@ const MetasPage = () => {
 
     return (
         <div className="p-4 sm:p-8">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold text-text-primary">Metas Financieras</h1>
+            <div className="flex justify-center items-center mb-6">
                 <button onClick={handleAdd} className="bg-primary text-white font-bold py-2 px-4 rounded-lg hover:bg-primary/80 transition-colors">
                     Agregar Meta
                 </button>
@@ -1409,8 +1585,9 @@ const MetasPage = () => {
 };
 
 const MainContent = () => {
-    const { page, ingresos, gastos, deudas, inversiones, metas, setIngresos, setGastos, setDeudas, setInversiones, setMetas } = useContext(AppContext);
-    
+    const { page, ingresos, gastos, deudas, inversiones, metas, setIngresos, setGastos, setDeudas, setInversiones, setMetas, confirmModal, selectedDate } = useContext(AppContext);
+    const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+
     const configs = {
         ingresos: { title: "Ingresos", data: ingresos, setData: setIngresos, collectionName: "ingresos", fields: [{ name: 'description', label: 'Descripción' }, { name: 'amount', label: 'Monto', type: 'currency' }, { name: 'category', label: 'Categoría' }] },
        
@@ -1431,13 +1608,43 @@ const MainContent = () => {
 
     const renderPage = () => {
         switch (page) {
-            case 'dashboard': return <Dashboard />;
-            case 'settings': return <Settings />;
-            case 'metas': return <MetasPage />;
-            case 'ingresos': case 'gastos': case 'deudas': case 'inversiones':
+            case 'dashboard':
+                return <Dashboard />;
+            case 'metas':
+                return (
+                    <div>
+                        <div className="text-center mb-6 p-4 sm:p-8">
+                            <h1 className="text-3xl font-bold text-text-primary mb-4">Metas</h1>
+                            <button onClick={() => setIsCalendarOpen(true)} className="flex items-center gap-2 text-text-secondary bg-background-secondary border border-border-color rounded-lg px-3 py-1 shadow-sm hover:shadow-md hover:text-primary transform hover:-translate-y-0.5 transition-all duration-200 mx-auto">
+                                <icons.calendar className="w-5 h-5"/>
+                                <span>{new Date(selectedDate.year, selectedDate.month).toLocaleString('es-AR', { month: 'long', year: 'numeric' })}</span>
+                            </button>
+                        </div>
+                        <MetasPage />
+                    </div>
+                );
+            case 'ingresos':
+            case 'gastos':
+            case 'deudas':
+            case 'inversiones': {
                 const config = configs[page];
-                return <CrudPage title={config.title} data={config.data} setData={config.setData} collectionName={config.collectionName} fieldsConfig={config.fields} />;
-            default: return <Dashboard />;
+                return (
+                    <div>
+                        <div className="text-center mb-6 p-4 sm:p-8">
+                            <h1 className="text-3xl font-bold text-text-primary mb-4">{config.title}</h1>
+                            <button onClick={() => setIsCalendarOpen(true)} className="flex items-center gap-2 text-text-secondary bg-background-secondary border border-border-color rounded-lg px-3 py-1 shadow-sm hover:shadow-md hover:text-primary transform hover:-translate-y-0.5 transition-all duration-200 mx-auto">
+                                <icons.calendar className="w-5 h-5"/>
+                                <span>{new Date(selectedDate.year, selectedDate.month).toLocaleString('es-AR', { month: 'long', year: 'numeric' })}</span>
+                            </button>
+                        </div>
+                        <CrudPage title={config.title} data={config.data} setData={config.setData} collectionName={config.collectionName} fieldsConfig={config.fields} />
+                    </div>
+                );
+            }
+            case 'settings':
+                return <Settings />;
+            default:
+                return <Dashboard />;
         }
     };
 
@@ -1447,6 +1654,17 @@ const MainContent = () => {
                 {renderPage()}
             </main>
             <Dock />
+            <NotificationModal />
+            {confirmModal && (
+                <ConfirmModal
+                    isOpen={true}
+                    onClose={confirmModal.onClose}
+                    onConfirm={confirmModal.onConfirm}
+                    title={confirmModal.title}
+                    message={confirmModal.message}
+                />
+            )}
+            {isCalendarOpen && <CalendarModal onClose={() => setIsCalendarOpen(false)} />}
         </div>
        );
 };
@@ -1489,20 +1707,144 @@ function AppContent() {
                 .to-primary { --tw-gradient-to: var(--color-primary) var(--tw-gradient-to-position); }
                 .animate-fade-in { animation: fadeIn 0.5s ease-in-out; }
                 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+                .animate-slide-in-right { animation: slideInRight 0.3s ease-out; }
+                @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
                 .transition-width { transition: width 0.5s ease-in-out; }
                 ::-webkit-scrollbar { width: 8px; }
                 ::-webkit-scrollbar-track { background: var(--color-bg-terciary); }
                 ::-webkit-scrollbar-thumb { background: var(--color-primary); border-radius: 4px; }
                 ::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--color-primary) 80%, black); }
-                .animated-gradient {
-                    background: linear-gradient(-45deg, #0d1117, #1c2a4a, #4f4c7a, #c389d9);
-                    background-size: 400% 400%;
-                    animation: gradient-animation 15s ease infinite;
+                .login-screen {
+                    position: relative;
+                    overflow: hidden;
+                    height: 100vh;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    background-color: rgb(13 17 23);
                 }
-                @keyframes gradient-animation {
-                    0% { background-position: 0% 50%; }
-                    50% { background-position: 100% 50%; }
-                    100% { background-position: 0% 50%; }
+
+                .parallax {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    overflow: hidden;
+                    pointer-events: none;
+                }
+
+                .stars {
+                    position: absolute;
+                    top: 0;
+                    left: 50%;
+                    width: 200%;
+                    height: 100%;
+                    opacity: 0.8;
+                    background-repeat: no-repeat;
+                    background-position: 0 0;
+                }
+
+                .layer1 {
+                    background-image: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"%3E%3Ccircle cx="12" cy="12" r="10" fill="%23ffffff" opacity="0.1"/%3E%3C/svg%3E');
+                    animation: moveStars 60s linear infinite;
+                }
+
+                .layer2 {
+                    background-image: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"%3E%3Ccircle cx="12" cy="12" r="10" fill="%23ffffff" opacity="0.2"/%3E%3C/svg%3E');
+                    animation: moveStars 120s linear infinite;
+                }
+
+                .layer3 {
+                    background-image: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"%3E%3Ccircle cx="12" cy="12" r="10" fill="%23ffffff" opacity="0.3"/%3E%3C/svg%3E');
+                    animation: moveStars 180s linear infinite;
+                }
+
+                @keyframes moveStars {
+                    0% { background-position: 0 0; }
+                    100% { background-position: 100% 100%; }
+                }
+
+                .login-modal {
+                    position: relative;
+                    z-index: 10;
+                    background: rgba(255, 255, 255, 0.9);
+                    backdrop-filter: blur(10px);
+                    border-radius: 1rem;
+                    padding: 2rem;
+                    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+                    width: 100%;
+                    max-width: 400px;
+                    text-align: center;
+                }
+
+                .login-modal h1 {
+                    font-size: 2rem;
+                    margin-bottom: 1rem;
+                    color: #333;
+                }
+
+                .login-modal p {
+                    margin-bottom: 2rem;
+                    color: #666;
+                }
+
+                .login-modal button {
+                    width: 100%;
+                    padding: 0.75rem;
+                    border: none;
+                    border-radius: 0.5rem;
+                    cursor: pointer;
+                    font-size: 1rem;
+                    transition: background 0.3s;
+                }
+
+                .login-modal button:hover {
+                    background: rgba(255, 105, 180, 0.1);
+                }
+
+                .login-modal .google-signin {
+                    background: #4285F4;
+                    color: white;
+                    font-weight: bold;
+                }
+
+                .login-modal .guest-signin {
+                    background: #34A853;
+                    color: white;
+                    font-weight: bold;
+                }
+
+                .login-modal .google-signin:hover {
+                    background: #357ae8;
+                }
+
+                .login-modal .guest-signin:hover {
+                    background: #28a745;
+                }
+
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+
+                @keyframes slideIn {
+                    from {
+                        opacity: 0;
+                        transform: translateY(10px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+
+                .animate-fade-in {
+                    animation: fadeIn 0.5s ease-out;
+                }
+
+                .animate-slide-in {
+                    animation: slideIn 0.5s ease-out;
                 }
             `}</style>
             { (isGuestMode && useLocalStorage) || userId ? <MainContent /> : <WelcomeScreen /> }
