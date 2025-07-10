@@ -5,6 +5,7 @@ import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, addDoc, dele
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import './firebase-config.js';
 import * as XLSX from 'xlsx';
+import ResumenTarjeta from './components/ResumenTarjeta';
 
 // Función helper para actualizar datos en localStorage
 const refreshLocalStorageData = (collectionName, setData, selectedDate, isTimeScoped) => {
@@ -49,6 +50,7 @@ const icons = {
   info: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>,
   warning: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
   gripVertical: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>,
+  creditCard: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>,
   google: (props) => <svg {...props} width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17.64 9.20455C17.64 8.56636 17.5827 7.95273 17.4682 7.36364H9V10.845H13.8436C13.635 11.97,13.0009 12.9232,12.0477 13.5614V15.8195H14.9564C16.6582 14.2527,17.64 11.9455,17.64 9.20455Z" fill="#4285F4"/><path d="M9 18C11.43 18,13.4673 17.1941,14.9564 15.8195L12.0477 13.5614C11.2418 14.1,10.2109 14.4205,9 14.4205C6.48 14.4205,4.36364 12.6805,3.65182 10.4386H0.717273V12.7805C2.25818 15.795,5.36182 18,9 18Z" fill="#34A853"/><path d="M3.65182 10.4386C3.45455 9.835,3.34091 9.19682,3.34091 8.525C3.34091 7.85318,3.45455 7.215,3.65182 6.61136V4.26955H0.717273C0.258182 5.25,0 6.35318,0 7.525C0 8.69682,0.258182 9.79955,0.717273 10.7805L3.65182 10.4386Z" fill="#FBBC05"/><path d="M9 3.57955C10.3214 3.57955,11.5077 4.03864,12.4405 4.935L15.0218 2.35455C13.4673 0.893636,11.43 0,9 0C5.36182 0,2.25818 2.205,0.717273 5.21955L3.65182 7.56136C4.36364 5.31955,6.48 3.57955,9 3.57955Z" fill="#EA4335"/></svg>,
 };
 
@@ -956,7 +958,7 @@ const GoalProgress = ({ meta, currency, dolarMep }) => {
     );
 };
 
-const FormattedCurrencyInput = ({ value, onChange }) => {
+const FormattedCurrencyInput = ({ value, onChange, showError = false }) => {
     const [displayValue, setDisplayValue] = useState('');
 
     useEffect(() => {
@@ -973,7 +975,25 @@ const FormattedCurrencyInput = ({ value, onChange }) => {
         }
     };
 
-    return <input type="text" value={displayValue} onChange={handleChange} className="w-full px-3 py-2 border border-border-color rounded-md bg-background-terciary text-text-primary focus:outline-none focus:ring-2 focus:ring-primary" />;
+    const isError = showError && Number(value) === 0;
+
+    return (
+        <div>
+            <input 
+                type="text" 
+                value={displayValue} 
+                onChange={handleChange} 
+                className={`w-full px-3 py-2 border rounded-md bg-background-terciary text-text-primary focus:outline-none focus:ring-2 ${
+                    isError 
+                        ? 'border-red-500 focus:ring-red-500' 
+                        : 'border-border-color focus:ring-primary'
+                }`} 
+            />
+            {isError && (
+                <p className="text-red-500 text-sm mt-1">El valor debe ser mayor a 0</p>
+            )}
+        </div>
+    );
 };
 
 const CrudModal = ({ item, onClose, onSave, title, fieldsConfig, loading }) => {
@@ -982,12 +1002,41 @@ const CrudModal = ({ item, onClose, onSave, title, fieldsConfig, loading }) => {
         return acc;
     }, {});
     const [formData, setFormData] = useState(initialFormState);
+    const [errors, setErrors] = useState({});
 
     const handleChange = (name, value) => {
         setFormData(prev => ({ ...prev, [name]: value }));
+        // Limpiar error cuando el usuario empiece a escribir
+        if (errors[name]) {
+            setErrors(prev => ({ ...prev, [name]: false }));
+        }
     };
 
-    const handleSubmit = (e) => { e.preventDefault(); onSave(formData); };
+    const validateForm = () => {
+        const newErrors = {};
+        
+        fieldsConfig.forEach(field => {
+            if (field.type === 'currency') {
+                const value = Number(formData[field.name]);
+                // Permitir valor 0 solo para campos específicos como currentAmount y paidAmount
+                const allowZero = field.name === 'currentAmount' || field.name === 'paidAmount';
+                
+                if (value === 0 && !allowZero) {
+                    newErrors[field.name] = true;
+                }
+            }
+        });
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const handleSubmit = (e) => { 
+        e.preventDefault(); 
+        if (validateForm()) {
+            onSave(formData);
+        }
+    };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4">
@@ -1003,7 +1052,11 @@ const CrudModal = ({ item, onClose, onSave, title, fieldsConfig, loading }) => {
                         <div key={field.name}>
                             <label htmlFor={field.name} className="block text-sm font-medium text-text-secondary mb-1">{field.label}</label>
                             {field.type === 'currency' ? (
-                                <FormattedCurrencyInput value={formData[field.name]} onChange={(val) => handleChange(field.name, val)} />
+                                <FormattedCurrencyInput 
+                                    value={formData[field.name]} 
+                                    onChange={(val) => handleChange(field.name, val)}
+                                    showError={errors[field.name]}
+                                />
                             ) : (
                                 <input type={field.type || 'text'} name={field.name} id={field.name} value={formData[field.name]}
                                     onChange={(e) => handleChange(field.name, e.target.value)} required
@@ -1080,6 +1133,40 @@ const Settings = () => {
     );
 };
 
+// --- MODAL EN CONSTRUCCIÓN ---
+const UnderConstructionModal = () => {
+    const { page, setPage } = useContext(AppContext);
+    
+    if (page !== 'resumenTarjeta') return null;
+    
+    return (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-background-secondary rounded-2xl shadow-2xl p-8 w-full max-w-md border-2 border-primary/50 text-center">
+                <div className="mb-6">
+                    <div className="w-24 h-24 bg-yellow-100 dark:bg-yellow-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <icons.creditCard className="w-12 h-12 text-yellow-600 dark:text-yellow-400" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-text-primary mb-3">Sección en Construcción</h3>
+                    <p className="text-text-secondary mb-4">
+                        El procesamiento OCR de tarjetas de crédito está siendo optimizado para ofrecerte la mejor experiencia.
+                    </p>
+                    <div className="flex items-center justify-center gap-2 text-sm text-primary mb-6">
+                        <div className="w-2 h-2 bg-primary rounded-full animate-ping"></div>
+                        <span>Próximamente disponible</span>
+                    </div>
+                </div>
+                <div className="flex gap-3 justify-center">
+                    <button
+                        onClick={() => setPage('dashboard')}
+                        className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/80 transition-colors font-medium"
+                    >
+                        Volver al Dashboard
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 const Dock = () => {
     const { page, setPage } = useContext(AppContext);
     const navItems = [
@@ -1089,6 +1176,7 @@ const Dock = () => {
         { id: 'deudas', label: 'Deudas', icon: icons.deudas },
         { id: 'inversiones', label: 'Inversiones', icon: icons.inversiones }, 
         { id: 'metas', label: 'Metas', icon: icons.metas },
+        { id: 'resumenTarjeta', label: 'OCR Tarjeta', icon: icons.creditCard },
         { id: 'settings', label: 'Settings', icon: icons.settings },
     ];
 
@@ -1139,7 +1227,7 @@ const CustomTooltip = ({ children, text, position = "top" }) => {
     );
 };
 
-const CrudPage = ({ title, data, setData, collectionName, fieldsConfig }) => {
+const CrudPage = ({ title, data, setData, collectionName, fieldsConfig, customItemRenderer }) => {
     const { db, userId, appId, selectedDate, currency, dolarMep, useLocalStorage, isGuestMode, showNotification, showConfirm } = useContext(AppContext);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentItem, setCurrentItem] = useState(null);
@@ -1273,7 +1361,16 @@ const validateFormData = (data, fieldsConfig) => {
             if (!validateAmount(value)) {
                 throw new Error(`Monto inválido para ${field.label}`);
             }
-            validatedData[field.name] = Number(value);
+            
+            const numValue = Number(value);
+            // Permitir valor 0 solo para campos específicos como currentAmount y paidAmount
+            const allowZero = field.name === 'currentAmount' || field.name === 'paidAmount';
+            
+            if (numValue === 0 && !allowZero) {
+                throw new Error(`${field.label} debe ser mayor a 0`);
+            }
+            
+            validatedData[field.name] = numValue;
         } else {
             const sanitized = sanitizeInput(value);
             if (!sanitized && field.required !== false) {
@@ -1289,11 +1386,25 @@ const validateFormData = (data, fieldsConfig) => {
     // Asegurar que los valores de currentAmount y paidAmount se actualicen correctamente
     const validateAndSave = (itemData, collectionName) => {
         if (collectionName === 'metas') {
+            // Solo establecer currentAmount en 0 si no está definido, targetAmount debe ser > 0
             itemData.currentAmount = itemData.currentAmount || 0;
-            itemData.targetAmount = itemData.targetAmount || 0;
+            if (!itemData.targetAmount || Number(itemData.targetAmount) === 0) {
+                return; // No guardar si targetAmount es 0
+            }
         } else if (collectionName === 'deudas') {
+            // Solo establecer paidAmount en 0 si no está definido, amount debe ser > 0
             itemData.paidAmount = itemData.paidAmount || 0;
-            itemData.amount = itemData.amount || 0;
+            if (!itemData.amount || Number(itemData.amount) === 0) {
+                return; // No guardar si amount es 0
+            }
+            if (!itemData.monthlyPayment || Number(itemData.monthlyPayment) === 0) {
+                return; // No guardar si monthlyPayment es 0
+            }
+        } else {
+            // Para ingresos, gastos e inversiones: amount debe ser > 0
+            if (!itemData.amount || Number(itemData.amount) === 0) {
+                return; // No guardar si amount es 0
+            }
         }
         handleSave(itemData);
     };
@@ -1490,8 +1601,73 @@ const validateFormData = (data, fieldsConfig) => {
             <div className={`bg-background-secondary rounded-xl shadow-lg border border-border-color overflow-hidden ${
                 viewMode === 'compact' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-0' : ''
             }`}>
-                {data && data.length > 0 ? data.map((item, index) => (
-                    viewMode === 'list' ? (
+                {data && data.length > 0 ? data.map((item, index) => {
+                    // Si hay un renderizador personalizado, usarlo (para metas)
+                    if (customItemRenderer) {
+                        return (
+                            <div
+                                key={item.id}
+                                draggable
+                                onDragStart={(e) => handleDragStart(e, index)}
+                                onDragEnter={(e) => handleDragEnter(e, index)}
+                                onDragEnd={handleDragEnd}
+                                onDragOver={handleDragOver}
+                                className={`group relative p-6 border-b border-border-color last:border-b-0 transition-all duration-200 ${
+                                    dragging && dragItem.current === index 
+                                        ? 'scale-105 shadow-2xl bg-primary/10 border-primary/30 opacity-90 transform rotate-1' 
+                                        : 'hover:bg-background-primary/50 cursor-grab active:cursor-grabbing'
+                                } ${
+                                    dragging && dragOverItem.current === index && dragItem.current !== index
+                                        ? 'border-t-2 border-t-primary bg-primary/5'
+                                        : ''
+                                }`}
+                            >
+                                {/* Indicador visual de drag */}
+                                <div className="absolute left-2 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-60 transition-opacity duration-200 text-text-secondary">
+                                    <CustomTooltip text="Arrastra para reordenar" position="right">
+                                        <icons.gripVertical className="w-4 h-4" />
+                                    </CustomTooltip>
+                                </div>
+                                
+                                {/* Botones de acción */}
+                                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                    <button 
+                                        onClick={() => handleEdit(item)} 
+                                        className="p-2 text-text-secondary hover:text-primary hover:bg-primary/10 rounded-lg transition-all duration-200"
+                                        title="Editar"
+                                    >
+                                        <icons.edit className="w-4 h-4"/>
+                                    </button>
+                                    <button 
+                                        onClick={() => handleDelete(item.id)} 
+                                        className="p-2 text-text-secondary hover:text-accent-magenta hover:bg-accent-magenta/10 rounded-lg transition-all duration-200"
+                                        title="Eliminar"
+                                    >
+                                        <icons.trash className="w-4 h-4"/>
+                                    </button>
+                                </div>
+                                
+                                {/* Contenido personalizado */}
+                                <div className="ml-6 pr-20">
+                                    <MetaItem 
+                                        meta={item} 
+                                        currency={currency} 
+                                        dolarMep={dolarMep} 
+                                        onEdit={() => handleEdit(item)}
+                                        onDelete={() => handleDelete(item.id)}
+                                    />
+                                </div>
+                                
+                                {/* Indicador de posición durante drag */}
+                                {dragging && dragOverItem.current === index && dragItem.current !== index && (
+                                    <div className="absolute -top-1 left-0 right-0 h-0.5 bg-primary rounded-full animate-pulse"></div>
+                                )}
+                            </div>
+                        );
+                    }
+                    
+                    // Renderizado normal para otras secciones
+                    return viewMode === 'list' ? (
                         // Vista de lista normal
                         <div
                             key={item.id}
@@ -1614,8 +1790,8 @@ const validateFormData = (data, fieldsConfig) => {
                                 </div>
                             </div>
                         </div>
-                    )
-                )) : (
+                    );
+                }) : (
                     <div className="p-8 text-center text-text-secondary">
                         <div className="mb-4 opacity-50">
                             {icons[collectionName] && React.createElement(icons[collectionName], { className: "w-16 h-16 mx-auto" })}
@@ -1632,171 +1808,54 @@ const validateFormData = (data, fieldsConfig) => {
 
 // --- COMPONENTES PRINCIPALES Y LAYOUT ---
 
-const MetasPage = () => {
-    const { metas, setMetas, currency, dolarMep, db, userId, appId, useLocalStorage, isGuestMode, showConfirm, showNotification } = useContext(AppContext);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [currentItem, setCurrentItem] = useState(null);
-    const [loading, setLoading] = useState(false);
+// --- COMPONENTE PERSONALIZADO PARA MOSTRAR METAS CON BARRA DE PROGRESO ---
+const MetaItem = ({ meta, currency, dolarMep, onEdit, onDelete }) => {
+    const progress = meta.targetAmount > 0 ? (meta.currentAmount / meta.targetAmount) * 100 : 0;
+    
+    return (
+        <div className="space-y-4">
+            <div className="flex justify-between items-start">
+                <h3 className="text-lg font-semibold text-text-primary">{meta.description}</h3>
+                <span className="text-sm font-medium text-primary">{Math.round(progress)}%</span>
+            </div>
+            
+            <div className="w-full bg-background-terciary rounded-full h-4 overflow-hidden">
+                <div 
+                    className="bg-gradient-to-r from-accent-cyan to-primary h-4 rounded-full transition-all duration-500" 
+                    style={{ width: `${progress}%` }}
+                ></div>
+            </div>
+            
+            <div className="flex justify-between items-center text-sm text-text-secondary">
+                <span>
+                    <PrivacyNumber value={formatCurrency(meta.currentAmount, currency, dolarMep)} />
+                </span>
+                <span>
+                    Meta: <PrivacyNumber value={formatCurrency(meta.targetAmount, currency, dolarMep)} />
+                </span>
+            </div>
+        </div>
+    );
+};
 
+const MetasPage = () => {
+    const { metas, setMetas } = useContext(AppContext);
+    
     const fieldsConfig = [
         { name: 'description', label: 'Descripción de la Meta' }, 
         { name: 'targetAmount', label: 'Monto Objetivo', type: 'currency' }, 
         { name: 'currentAmount', label: 'Monto Actual', type: 'currency', defaultValue: 0 }
     ];
 
-    const handleAdd = () => { setCurrentItem(null); setIsModalOpen(true); };
-    const handleEdit = (item) => { setCurrentItem(item); setIsModalOpen(true); };
-    
-    const handleDelete = async (id) => {
-
-        
-        try {
-            const confirmed = await showConfirm('¿Estás seguro de que quieres eliminar esta meta?', 'Confirmar eliminación de meta');
-            
-            if (confirmed) {
-                setLoading(true);
-
-                if (isGuestMode && useLocalStorage) {
-                    const storageKey = 'nebula-metas';
-                    const storedData = localStorage.getItem(storageKey);
-                    let allData = storedData ? JSON.parse(storedData) : [];
-
-                    allData = allData.filter(item => item.id !== id);
-                    localStorage.setItem(storageKey, JSON.stringify(allData));
-
-                    setMetas(allData);
-                    showNotification('Meta eliminada correctamente', 'success');
-                } else {
-                    if (!db || !userId) {
-                        console.error('❌ No se puede eliminar: db o userId no están definidos.');
-                        showNotification('Error: No se pudo conectar a la base de datos', 'error');
-                        setLoading(false);
-                        return;
-                    }
-                    try {
-                        const docRef = doc(db, `artifacts/${appId}/users/${userId}/metas`, id);
-                        await deleteDoc(docRef);
-
-                        const updatedMetas = metas.filter(item => item.id !== id);
-                        setMetas(updatedMetas);
-                        showNotification('Meta eliminada correctamente', 'success');
-                    } catch (error) {
-                        console.error('❌ Error al eliminar la meta:', error);
-                        showNotification('Error al eliminar la meta', 'error');
-                    }
-                }
-                setLoading(false);
-            }
-        } catch (error) {
-            console.error('❌ Error en handleDelete de metas:', error);
-            showNotification('Error inesperado al eliminar meta', 'error');
-            setLoading(false);
-        }
-    };
-
-    const handleSave = async (itemData) => {
-        setLoading(true);
-        
-        let dataToSave = { ...itemData };
-        dataToSave.currentAmount = dataToSave.currentAmount || 0;
-        dataToSave.targetAmount = dataToSave.targetAmount || 0;
-        dataToSave.date = new Date();
-
-        if (isGuestMode && useLocalStorage) {
-            // Modo invitado: usar localStorage
-            const storageKey = 'nebula-metas';
-            const storedData = localStorage.getItem(storageKey);
-            let allData = storedData ? JSON.parse(storedData) : [];
-            
-            if (currentItem) {
-                // Editar meta existente
-                const index = allData.findIndex(item => item.id === currentItem.id);
-                if (index !== -1) {
-                    allData[index] = { ...allData[index], ...dataToSave };
-                }
-            } else {
-                // Agregar nueva meta
-                const maxOrder = allData.reduce((max, item) => ((item.order ?? 0) > max ? item.order : max), -1);
-                dataToSave.order = maxOrder + 1;
-                dataToSave.id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
-                allData.push(dataToSave);
-            }
-            
-            localStorage.setItem(storageKey, JSON.stringify(allData));
-
-            setMetas(allData);
-        } else {
-            if (!db || !userId) {
-                setLoading(false);
-                return;
-            }
-            try {
-                if (currentItem) {
-                    // Editar meta existente
-                    await updateDoc(doc(db, `artifacts/${appId}/users/${userId}/metas`, currentItem.id), dataToSave);
-
-                } else {
-                    // Agregar nueva meta
-                    const maxOrder = metas.reduce((max, item) => ((item.order ?? 0) > max ? item.order : max), -1);
-                    dataToSave.order = maxOrder + 1;
-                    await addDoc(collection(db, `artifacts/${appId}/users/${userId}/metas`), dataToSave);
-
-                }
-            } catch (error) {
-                console.error('Error al guardar meta:', error);
-            }
-        }
-        
-        setLoading(false);
-        setIsModalOpen(false);
-        setCurrentItem(null);
-    };
-
-    // Filtrar metas con valores válidos (misma lógica que MetasWidget)
-    const validMetas = metas.filter(meta => meta.currentAmount >= 0 && meta.targetAmount > 0);
-
     return (
-        <div className="p-4 sm:p-8">
-            <div className="flex justify-center items-center mb-6">
-                <button onClick={handleAdd} className="bg-primary text-white font-bold py-2 px-4 rounded-lg hover:bg-primary/80 transition-colors">
-                    Agregar Meta
-                </button>
-            </div>
-            
-            <div className="grid gap-6">
-                {validMetas.length > 0 ? validMetas.map(meta => (
-                    <div key={meta.id} className="bg-background-secondary p-6 rounded-xl shadow-lg border border-border-color">
-                        <div className="flex justify-between items-start mb-4">
-                            <h3 className="text-xl font-semibold text-text-primary">{meta.description}</h3>
-                            <div className="flex gap-2">
-                                <button onClick={() => handleEdit(meta)} className="text-text-secondary hover:text-primary">
-                                    <icons.edit className="w-5 h-5"/>
-                                </button>
-                                <button onClick={() => handleDelete(meta.id)} className="text-text-secondary hover:text-accent-magenta">
-                                    <icons.trash className="w-5 h-5"/>
-                                </button>
-                            </div>
-                        </div>
-                        <GoalProgress meta={meta} currency={currency} dolarMep={dolarMep} />
-                    </div>
-                )) : (
-                    <div className="bg-background-secondary p-6 rounded-xl shadow-lg border border-border-color text-center">
-                        <p className="text-text-secondary">No hay metas registradas.</p>
-                    </div>
-                )}
-            </div>
-            
-            {isModalOpen && (
-                <CrudModal 
-                    item={currentItem} 
-                    onClose={() => setIsModalOpen(false)} 
-                    onSave={handleSave} 
-                    title="Metas" 
-                    fieldsConfig={fieldsConfig} 
-                    loading={loading} 
-                />
-            )}
-        </div>
+        <CrudPage 
+            title="Metas" 
+            data={metas} 
+            setData={setMetas} 
+            collectionName="metas" 
+            fieldsConfig={fieldsConfig}
+            customItemRenderer={true}
+        />
     );
 };
 
@@ -1859,6 +1918,16 @@ const MainContent = () => {
             }
             case 'settings':
                 return <Settings />;
+            case 'resumenTarjeta':
+                return (
+                    <div className="p-4 sm:p-8">
+                        <div className="text-center mb-6">
+                            <h1 className="text-3xl font-bold text-text-primary mb-4">Lector OCR de Tarjetas</h1>
+                            <p className="text-text-secondary">Sube un resumen de tarjeta para extraer automáticamente el total a pagar</p>
+                        </div>
+                        <ResumenTarjeta />
+                    </div>
+                );
             default:
                 return <Dashboard />;
         }
@@ -1871,6 +1940,7 @@ const MainContent = () => {
             </main>
             <Dock />
             <NotificationModal />
+            <UnderConstructionModal />
             {confirmModal && (
                 <ConfirmModal
                     isOpen={true}

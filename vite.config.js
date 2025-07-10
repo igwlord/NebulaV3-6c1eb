@@ -14,5 +14,11 @@ export default defineConfig({
   },
   define: {
     'process.env': {}
+  },
+  optimizeDeps: {
+    include: ['pdfjs-dist']
+  },
+  worker: {
+    format: 'es'
   }
 })
