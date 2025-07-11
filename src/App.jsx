@@ -1151,10 +1151,10 @@ const UnderConstructionModal = () => {
                     <p className="text-text-secondary mb-4">
                         El procesamiento OCR de tarjetas de crédito está siendo optimizado para ofrecerte la mejor experiencia.
                     </p>
-                    <div className="flex items-center justify-center gap-2 text-sm text-primary mb-6">
-                        <div className="w-2 h-2 bg-primary rounded-full animate-ping"></div>
-                        <span>Próximamente disponible</span>
-                    </div>
+                        <div className="flex items-center justify-center gap-2 text-sm text-primary mb-6">
+                            <div className="w-2 h-2 bg-primary rounded-full"></div>
+                            <span>Próximamente disponible</span>
+                        </div>
                 </div>
                 <div className="flex gap-3 justify-center">
                     <button
@@ -1279,13 +1279,41 @@ const CrudPage = ({ title, data, setData, collectionName, fieldsConfig, customIt
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentItem, setCurrentItem] = useState(null);
     const [loading, setLoading] = useState(false);
+
     // Definir la variable dragging como un estado local para evitar errores de referencia
     const [dragging, setDragging] = useState(false);
     const [viewMode, setViewMode] = useState('list'); // 'list' o 'compact'
-    
+
     // Referencias para el drag and drop
     const dragItem = useRef(null);
     const dragOverItem = useRef(null);
+
+    // --- FUNCION PARA MOVER ELEMENTOS CON FLECHAS EN MOBILE ---
+    const handleMoveItem = (fromIndex, toIndex) => {
+        if (fromIndex === toIndex || toIndex < 0 || toIndex >= data.length) return;
+        const newData = [...data];
+        const [movedItem] = newData.splice(fromIndex, 1);
+        newData.splice(toIndex, 0, movedItem);
+
+        // Actualizar el orden en el array
+        setData(newData);
+
+        // Guardar el nuevo orden en localStorage o base de datos
+        if (isGuestMode && useLocalStorage) {
+            const storageKey = `nebula-${collectionName}`;
+            const updatedData = newData.map((item, idx) => ({ ...item, order: idx }));
+            localStorage.setItem(storageKey, JSON.stringify(updatedData));
+        } else {
+            if (!db || !userId) return;
+            const batch = writeBatch(db);
+            newData.forEach((item, idx) => {
+                const docRef = doc(db, `artifacts/${appId}/users/${userId}/${collectionName}`, item.id);
+                batch.update(docRef, { order: idx });
+            });
+            batch.commit().catch(err => console.error("Error al reordenar:", err));
+        }
+        showNotification('Elementos reordenados correctamente', 'success');
+    };
 
     const handleAdd = () => { setCurrentItem(null); setIsModalOpen(true); };
     const handleEdit = (item) => { setCurrentItem(item); setIsModalOpen(true); };
@@ -1603,7 +1631,7 @@ const validateFormData = (data, fieldsConfig) => {
                         {title} ({data.length})
                     </h2>
                     {data.length > 1 && (
-                        <div className="text-xs text-text-secondary bg-background-primary px-2 py-1 rounded-full border border-border-color">
+                        <div className="text-xs text-text-secondary bg-background-primary px-2 py-1 rounded-full border border-border-color hidden md:inline">
                             Arrastra para reordenar
                         </div>
                     )}
@@ -1649,6 +1677,10 @@ const validateFormData = (data, fieldsConfig) => {
                 viewMode === 'compact' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-0' : ''
             }`}>
                 {data && data.length > 0 ? data.map((item, index) => {
+                    // Detectar si es mobile (tailwind: md:hidden)
+                    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+                    // Solo para gastos en mobile: mostrar flechas, ocultar drag
+                    const showArrows = isMobile && collectionName === 'gastos';
                     // Si hay un renderizador personalizado, usarlo (para metas)
                     if (customItemRenderer) {
                         return (
@@ -1718,28 +1750,48 @@ const validateFormData = (data, fieldsConfig) => {
                         // Vista de lista normal
                         <div
                             key={item.id}
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, index)}
-                            onDragEnter={(e) => handleDragEnter(e, index)}
-                            onDragEnd={handleDragEnd}
-                            onDragOver={handleDragOver}
-                            className={`group relative p-4 flex justify-between items-center border-b border-border-color last:border-b-0 transition-all duration-200 ${
-                                dragging && dragItem.current === index 
-                                    ? 'scale-105 shadow-2xl bg-primary/10 border-primary/30 opacity-90 transform rotate-1' 
-                                    : 'hover:bg-background-primary/50 cursor-grab active:cursor-grabbing'
-                            } ${
-                                dragging && dragOverItem.current === index && dragItem.current !== index
-                                    ? 'border-t-2 border-t-primary bg-primary/5'
-                                    : ''
-                            }`}
+                            draggable={!showArrows}
+                            onDragStart={!showArrows ? (e) => handleDragStart(e, index) : undefined}
+                            onDragEnter={!showArrows ? (e) => handleDragEnter(e, index) : undefined}
+                            onDragEnd={!showArrows ? handleDragEnd : undefined}
+                            onDragOver={!showArrows ? handleDragOver : undefined}
+                            className={`group relative p-4 flex justify-between items-center border-b border-border-color last:border-b-0 transition-all duration-200
+                                ${!showArrows && dragging && dragItem.current === index ? 'z-20 scale-105 shadow-2xl bg-primary/10 border-2 border-primary animate-pulse' : ''}
+                                ${!showArrows && dragging && dragOverItem.current === index && dragItem.current !== index ? 'border-t-4 border-t-accent-cyan bg-primary/5' : ''}
+                                ${!showArrows ? 'hover:bg-background-primary/60 cursor-grab active:cursor-grabbing' : ''}
+                            `}
                         >
-                            {/* Indicador visual de drag */}
-                            <div className="absolute left-2 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-60 transition-opacity duration-200 text-text-secondary">
-                                <CustomTooltip text="Arrastra para reordenar" position="right">
-                                    <icons.gripVertical className="w-4 h-4" />
-                                </CustomTooltip>
-                            </div>
-                            
+                            {/* Flechas de orden solo en mobile y gastos */}
+                            {showArrows ? (
+                                <div className="flex flex-col items-center mr-2 md:hidden">
+                                    <button
+                                        className="text-primary text-xl leading-none disabled:opacity-30"
+                                        onClick={() => index > 0 && handleMoveItem(index, index - 1)}
+                                        disabled={index === 0}
+                                        title="Subir"
+                                    >↑</button>
+                                    <button
+                                        className="text-primary text-xl leading-none disabled:opacity-30"
+                                        onClick={() => index < data.length - 1 && handleMoveItem(index, index + 1)}
+                                        disabled={index === data.length - 1}
+                                        title="Bajar"
+                                    >↓</button>
+                                </div>
+                            ) : (
+                                // Drag handle solo en desktop
+                                <div className="absolute left-2 top-1/2 transform -translate-y-1/2 opacity-80 group-hover:opacity-100 transition-opacity duration-200 hidden md:block cursor-grab active:cursor-grabbing text-orange-500 dark:text-yellow-400">
+                                    <CustomTooltip text="Arrastra para reordenar" position="right">
+                                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-5 h-5">
+                                            <circle cx="4" cy="4" r="1.5" fill="currentColor" />
+                                            <circle cx="4" cy="9" r="1.5" fill="currentColor" />
+                                            <circle cx="4" cy="14" r="1.5" fill="currentColor" />
+                                            <circle cx="9" cy="4" r="1.5" fill="currentColor" />
+                                            <circle cx="9" cy="9" r="1.5" fill="currentColor" />
+                                            <circle cx="9" cy="14" r="1.5" fill="currentColor" />
+                                        </svg>
+                                    </CustomTooltip>
+                                </div>
+                            )}
                             <div className="flex-1 ml-6">
                                 <p className="font-semibold text-text-primary group-hover:text-primary transition-colors duration-200">
                                     {item.description}
@@ -1748,11 +1800,10 @@ const validateFormData = (data, fieldsConfig) => {
                                     {item.category || (item.date && new Date(item.date.seconds * 1000).toLocaleDateString())}
                                 </p>
                             </div>
-                            
                             <div className="flex items-center gap-4">
                                 <span className={`font-bold text-lg transition-colors duration-200 ${
                                     collectionName === 'ingresos' ? 'text-accent-green' : 'text-accent-magenta'
-                                } ${dragging && dragItem.current === index ? 'text-primary' : ''}`}>
+                                }`}>
                                     {formatCurrency(item.amount, currency, dolarMep)}
                                 </span>
                                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
@@ -1772,11 +1823,6 @@ const validateFormData = (data, fieldsConfig) => {
                                     </button>
                                 </div>
                             </div>
-                            
-                            {/* Indicador de posición durante drag */}
-                            {dragging && dragOverItem.current === index && dragItem.current !== index && (
-                                <div className="absolute -top-1 left-0 right-0 h-0.5 bg-primary rounded-full animate-pulse"></div>
-                            )}
                         </div>
                     ) : (
                         // Vista compacta (tarjetas)
