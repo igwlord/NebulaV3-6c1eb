@@ -640,7 +640,7 @@ const WelcomeScreen = () => {
             </div>
             <div className="relative min-h-screen flex flex-col justify-center items-center text-center p-4 transition-opacity duration-1000">
                 <h1 id="nebula-title" className="text-7xl md:text-9xl font-serif text-amber-400 mb-4" style={{ fontFamily: "'Playfair Display', serif", textShadow: '0 0 15px rgba(250, 190, 88, 0.5)' }}>{typedTitle}</h1>
-                <p className="text-gray-300 text-lg md:text-2xl h-8 mb-8">{typedSlogan}<span className="animate-ping">|</span></p>
+                <p className="text-lg md:text-2xl h-8 mb-8" style={{ color: '#ff00ea', textShadow: '0 0 8px #ff00ea, 0 0 20px #ff00ea' }}>{typedSlogan}<span className="animate-ping" style={{ color: '#ff00ea' }}>|</span></p>
                 <div className="bg-background-secondary/20 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-white/20 animate-fade-in">
                     <div className="flex flex-col gap-4">
                          <button onClick={handleGoogleSignIn} className="bg-white text-gray-800 font-bold py-3 px-8 rounded-lg text-lg hover:bg-gray-200 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105 flex items-center justify-center gap-3">
@@ -1673,11 +1673,23 @@ const validateFormData = (data, fieldsConfig) => {
             {/* Encabezado: Mobile y Desktop diferente */}
             <div className="mb-6 gap-4">
                 {/* MOBILE: Solo botón a la izquierda, sin título, excepto en Dashboard */}
-                <div className="flex items-center justify-start md:hidden">
+                <div className="flex items-center justify-start md:hidden w-full">
                     {title !== 'Dashboard' && (
-                        <button onClick={handleAdd} className="bg-primary text-white font-bold py-2 px-4 rounded-lg hover:bg-primary/80 transition-colors mr-2">
-                            Agregar
-                        </button>
+                        <>
+                            <button onClick={handleAdd} className="bg-primary text-white font-bold py-2 px-4 rounded-lg hover:bg-primary/80 transition-colors mr-2">
+                                Agregar
+                            </button>
+                            {(collectionName === 'ingresos' || collectionName === 'gastos') && (
+                                <button
+                                    onClick={handleRepeatPreviousMonth}
+                                    className="flex items-center gap-1 bg-primary/80 text-white font-bold py-2 px-3 rounded-lg hover:bg-primary/60 transition-colors"
+                                    title="Repetir Mes Anterior"
+                                >
+                                    <icons.repeat className="w-5 h-5" />
+                                    <span className="text-xs">Repetir</span>
+                                </button>
+                            )}
+                        </>
                     )}
                 </div>
                 {/* DESKTOP: Título con contador y controles a la derecha */}
@@ -1876,7 +1888,7 @@ const validateFormData = (data, fieldsConfig) => {
                             </div>
                             {/* Botones de acción SIEMPRE visibles en mobile, hover en desktop */}
                             <div className="flex items-center gap-4">
-                                <span className={`font-bold text-lg transition-colors duration-200 ${
+                                <span className={`font-bold text-base xs:text-lg transition-colors duration-200 ${
                                     collectionName === 'ingresos' ? 'text-accent-green' : 'text-accent-magenta'
                                 }`}>
                                     {formatCurrency(item.amount, currency, dolarMep)}
@@ -2371,7 +2383,10 @@ const CalendarModal = ({ onClose }) => {
     const { selectedDate, setSelectedDate } = useContext(AppContext);
     const [displayYear, setDisplayYear] = useState(selectedDate.year);
 
-    const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    const monthNamesFull = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    const monthNamesShort = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+    const isMobile = window.innerWidth < 768;
+    const monthNames = isMobile ? monthNamesShort : monthNamesFull;
     
     const selectMonth = (monthIndex) => {
         setSelectedDate({ year: displayYear, month: monthIndex });
