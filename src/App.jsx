@@ -426,6 +426,8 @@ const WelcomeScreen = () => {
     const { auth, setIsGuestMode, showNotification } = useContext(AppContext);
     const [typedTitle, setTypedTitle] = useState('');
     const [typedSlogan, setTypedSlogan] = useState('');
+    const [showTerms, setShowTerms] = useState(false);
+    const [showPrivacy, setShowPrivacy] = useState(false);
     const slogans = [
         "Planifica. Ejecuta. Prospera.",
         "Tu camino claro hacia la abundancia.",
@@ -652,9 +654,179 @@ const WelcomeScreen = () => {
                             Ingresar como Invitado
                         </button>
                     </div>
-                     <p className="text-xs text-white/50 mt-4 max-w-xs mx-auto">Al ingresar como invitado, tus datos se guardarán solo en este dispositivo y no estarán disponibles en la nube.</p>
+                     <p className="text-xs text-white/50 mt-4 max-w-xs mx-auto">
+                        Al ingresar como invitado, tus datos no se guardarán en la nube.
+                        <br/>
+                        <span className="text-blue-400 cursor-pointer hover:text-blue-300 underline" onClick={() => setShowTerms(true)}>
+                            Términos y Condiciones
+                        </span>
+                        {" | "}
+                        <span className="text-blue-400 cursor-pointer hover:text-blue-300 underline" onClick={() => setShowPrivacy(true)}>
+                            Política de Privacidad
+                        </span>
+                    </p>
                 </div>
             </div>
+
+            {/* Modal de Términos y Condiciones */}
+            {showTerms && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
+                        <div className="flex justify-between items-center p-6 border-b dark:border-gray-700">
+                            <h3 className="text-lg font-semibold dark:text-white">Términos y Condiciones</h3>
+                            <button 
+                                onClick={() => setShowTerms(false)}
+                                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xl"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <div className="p-6 overflow-y-auto max-h-[60vh] dark:text-gray-300">
+                            <div className="space-y-4 text-sm leading-relaxed">
+                                <h4 className="text-base font-semibold">1. ACEPTACIÓN DE LOS TÉRMINOS</h4>
+                                <p>Al acceder y utilizar la aplicación Nebula ("la Aplicación"), usted acepta cumplir con estos Términos y Condiciones. Si no está de acuerdo con alguno de estos términos, debe abstenerse de utilizar la Aplicación.</p>
+                                
+                                <h4 className="text-base font-semibold">2. DESCRIPCIÓN DEL SERVICIO</h4>
+                                <p>Nebula es una aplicación de gestión financiera personal que permite a los usuarios administrar sus finanzas, inversiones y presupuestos de manera organizada y eficiente. La Aplicación puede funcionar tanto en modo en línea como fuera de línea.</p>
+                                
+                                <h4 className="text-base font-semibold">3. REGISTRO Y CUENTAS DE USUARIO</h4>
+                                <p>Para utilizar ciertas características de la Aplicación, es posible que deba crear una cuenta. Usted es responsable de mantener la confidencialidad de su información de cuenta y de todas las actividades que ocurran bajo su cuenta.</p>
+                                
+                                <h4 className="text-base font-semibold">4. USO ACEPTABLE</h4>
+                                <p>Usted se compromete a utilizar la Aplicación únicamente para fines legales y de acuerdo con estos Términos y Condiciones. No debe:</p>
+                                <ul className="list-disc list-inside ml-4 space-y-1">
+                                    <li>Utilizar la Aplicación para actividades ilegales o fraudulentas</li>
+                                    <li>Intentar acceder a datos de otros usuarios sin autorización</li>
+                                    <li>Interferir con el funcionamiento normal de la Aplicación</li>
+                                    <li>Transmitir virus o código malicioso</li>
+                                </ul>
+                                
+                                <h4 className="text-base font-semibold">5. PRIVACIDAD Y PROTECCIÓN DE DATOS</h4>
+                                <p>Su privacidad es importante para nosotros. El tratamiento de sus datos personales se rige por nuestra Política de Privacidad, que forma parte integral de estos Términos y Condiciones.</p>
+                                
+                                <h4 className="text-base font-semibold">6. PROPIEDAD INTELECTUAL</h4>
+                                <p>La Aplicación y todo su contenido, incluyendo pero no limitado a software, texto, imágenes, gráficos, logos, iconos, y código fuente, son propiedad de Nebula o sus licenciantes y están protegidos por las leyes de propiedad intelectual.</p>
+                                
+                                <h4 className="text-base font-semibold">7. LIMITACIÓN DE RESPONSABILIDAD</h4>
+                                <p>Nebula no será responsable por daños directos, indirectos, incidentales, especiales o consecuentes que resulten del uso o la imposibilidad de usar la Aplicación. La Aplicación se proporciona "tal como está" sin garantías de ningún tipo.</p>
+                                
+                                <h4 className="text-base font-semibold">8. SEGURIDAD DE DATOS</h4>
+                                <p>Aunque implementamos medidas de seguridad razonables, no podemos garantizar la seguridad absoluta de sus datos. Los usuarios son responsables de hacer copias de seguridad de su información importante.</p>
+                                
+                                <h4 className="text-base font-semibold">9. MODIFICACIONES</h4>
+                                <p>Nos reservamos el derecho de modificar estos Términos y Condiciones en cualquier momento. Las modificaciones entrarán en vigor al momento de su publicación en la Aplicación. Su uso continuado de la Aplicación constituye la aceptación de los términos modificados.</p>
+                                
+                                <h4 className="text-base font-semibold">10. TERMINACIÓN</h4>
+                                <p>Podemos suspender o terminar su acceso a la Aplicación en cualquier momento, con o sin causa, con o sin aviso previo, especialmente si determina que ha violado estos Términos y Condiciones.</p>
+                                
+                                <h4 className="text-base font-semibold">11. LEY APLICABLE</h4>
+                                <p>Estos Términos y Condiciones se rigen por las leyes del país donde opera Nebula, sin considerar los principios de conflicto de leyes.</p>
+                                
+                                <h4 className="text-base font-semibold">12. CONTACTO</h4>
+                                <p>Si tiene preguntas sobre estos Términos y Condiciones, puede contactarnos a través de los canales de comunicación disponibles en la Aplicación.</p>
+                                
+                                <p className="text-xs text-gray-500 mt-6">Última actualización: {new Date().toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Política de Privacidad */}
+            {showPrivacy && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
+                        <div className="flex justify-between items-center p-6 border-b dark:border-gray-700">
+                            <h3 className="text-lg font-semibold dark:text-white">Política de Privacidad</h3>
+                            <button 
+                                onClick={() => setShowPrivacy(false)}
+                                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xl"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <div className="p-6 overflow-y-auto max-h-[60vh] dark:text-gray-300">
+                            <div className="space-y-4 text-sm leading-relaxed">
+                                <h4 className="text-base font-semibold">1. INFORMACIÓN QUE RECOPILAMOS</h4>
+                                <p><strong>Información Personal:</strong> Cuando utiliza Nebula, podemos recopilar información personal que usted nos proporciona voluntariamente, como:</p>
+                                <ul className="list-disc list-inside ml-4 space-y-1">
+                                    <li>Dirección de correo electrónico (si inicia sesión con Google)</li>
+                                    <li>Nombre de usuario y foto de perfil (si inicia sesión con Google)</li>
+                                    <li>Datos financieros que ingrese en la aplicación (ingresos, gastos, inversiones)</li>
+                                </ul>
+                                
+                                <p><strong>Información de Uso:</strong> Recopilamos automáticamente cierta información sobre cómo utiliza la Aplicación:</p>
+                                <ul className="list-disc list-inside ml-4 space-y-1">
+                                    <li>Información sobre su dispositivo y navegador</li>
+                                    <li>Direcciones IP</li>
+                                    <li>Patrones de uso de la aplicación</li>
+                                    <li>Páginas visitadas y características utilizadas</li>
+                                </ul>
+                                
+                                <h4 className="text-base font-semibold">2. CÓMO UTILIZAMOS SU INFORMACIÓN</h4>
+                                <p>Utilizamos la información recopilada para:</p>
+                                <ul className="list-disc list-inside ml-4 space-y-1">
+                                    <li>Proporcionar, operar y mantener la Aplicación</li>
+                                    <li>Mejorar, personalizar y expandir la Aplicación</li>
+                                    <li>Entender y analizar cómo utiliza la Aplicación</li>
+                                    <li>Desarrollar nuevos productos, servicios, características y funcionalidades</li>
+                                    <li>Comunicarnos con usted para atención al cliente, actualizaciones u otras información relacionada con la Aplicación</li>
+                                    <li>Enviarle correos electrónicos (solo si ha dado su consentimiento)</li>
+                                    <li>Detectar, prevenir y abordar problemas técnicos</li>
+                                </ul>
+                                
+                                <h4 className="text-base font-semibold">3. COMPARTIR INFORMACIÓN</h4>
+                                <p>No vendemos, intercambiamos ni transferimos su información personal a terceros, excepto en las siguientes circunstancias:</p>
+                                <ul className="list-disc list-inside ml-4 space-y-1">
+                                    <li>Con su consentimiento explícito</li>
+                                    <li>Para cumplir con obligaciones legales</li>
+                                    <li>Para proteger nuestros derechos, propiedad o seguridad</li>
+                                    <li>Con proveedores de servicios que nos ayudan a operar la Aplicación (bajo estrictos acuerdos de confidencialidad)</li>
+                                </ul>
+                                
+                                <h4 className="text-base font-semibold">4. ALMACENAMIENTO DE DATOS</h4>
+                                <p><strong>Modo Conectado:</strong> Si inicia sesión con Google, sus datos se almacenan de forma segura en servidores en la nube con encriptación.</p>
+                                <p><strong>Modo Invitado:</strong> Si utiliza la aplicación como invitado, todos sus datos se almacenan localmente en su dispositivo y no se transmiten a nuestros servidores.</p>
+                                
+                                <h4 className="text-base font-semibold">5. SEGURIDAD DE DATOS</h4>
+                                <p>Implementamos medidas de seguridad técnicas y organizativas apropiadas para proteger su información personal contra:</p>
+                                <ul className="list-disc list-inside ml-4 space-y-1">
+                                    <li>Acceso no autorizado</li>
+                                    <li>Alteración, divulgación o destrucción</li>
+                                    <li>Pérdida accidental</li>
+                                </ul>
+                                
+                                <h4 className="text-base font-semibold">6. SUS DERECHOS</h4>
+                                <p>Usted tiene derecho a:</p>
+                                <ul className="list-disc list-inside ml-4 space-y-1">
+                                    <li>Acceder a sus datos personales</li>
+                                    <li>Corregir datos inexactos</li>
+                                    <li>Solicitar la eliminación de sus datos</li>
+                                    <li>Retirar el consentimiento en cualquier momento</li>
+                                    <li>Exportar sus datos en un formato legible</li>
+                                </ul>
+                                
+                                <h4 className="text-base font-semibold">7. COOKIES Y TECNOLOGÍAS SIMILARES</h4>
+                                <p>Utilizamos cookies y tecnologías similares para mejorar su experiencia, analizar el uso de la Aplicación y ayudar con nuestros esfuerzos de marketing.</p>
+                                
+                                <h4 className="text-base font-semibold">8. SERVICIOS DE TERCEROS</h4>
+                                <p>La Aplicación puede utilizar servicios de terceros como Google Auth para autenticación. Estos servicios tienen sus propias políticas de privacidad que le recomendamos revisar.</p>
+                                
+                                <h4 className="text-base font-semibold">9. MENORES DE EDAD</h4>
+                                <p>La Aplicación no está dirigida a menores de 13 años. No recopilamos conscientemente información personal de menores de 13 años.</p>
+                                
+                                <h4 className="text-base font-semibold">10. CAMBIOS A ESTA POLÍTICA</h4>
+                                <p>Podemos actualizar esta Política de Privacidad periódicamente. Le notificaremos cualquier cambio publicando la nueva Política de Privacidad en esta página.</p>
+                                
+                                <h4 className="text-base font-semibold">11. CONTACTO</h4>
+                                <p>Si tiene preguntas sobre esta Política de Privacidad, puede contactarnos a través de los canales disponibles en la Aplicación.</p>
+                                
+                                <p className="text-xs text-gray-500 mt-6">Última actualización: {new Date().toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -2191,8 +2363,6 @@ const MainContent = () => {
 
 
                 // --- Componente de gráfico limpio con Recharts ---
-                // Importar Recharts solo una vez arriba del archivo:
-                // import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts';
                 return (
                     <div>
                         <div className="text-center mb-6 p-4 sm:p-8">
@@ -2241,16 +2411,10 @@ const MainContent = () => {
                             customItemRenderer={({item, index, handleEdit, handleDelete}) => {
                                 // Calcular rentabilidad individual
                                 const inv = item;
-                                console.log('Inversión renderizada:', inv);
-                                console.log('inv.amount:', inv.amount, 'tipo:', typeof inv.amount);
-                                console.log('inv.currentValue:', inv.currentValue, 'tipo:', typeof inv.currentValue);
-                                
                                 // Convertir valores asegurando que sean números
                                 const monto = typeof inv.amount === 'string' ? Number(inv.amount.replace(/\./g, '')) : Number(inv.amount) || 0;
                                 const actual = typeof inv.currentValue === 'string' ? Number(inv.currentValue.replace(/\./g, '')) : Number(inv.currentValue) || 0;
                                 const rent = monto > 0 ? ((actual - monto) / monto) * 100 : 0;
-                                
-                                console.log('Valores calculados - monto:', monto, 'actual:', actual, 'rent:', rent);
                                 
                                 return (
                                     <div className="group relative p-4 border-b border-border-color last:border-b-0 transition-all duration-200 hover:bg-background-primary/60" key={inv.id}>
