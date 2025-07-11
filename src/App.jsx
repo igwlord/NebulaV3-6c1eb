@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, createContext, useContext, useMemo, useRef, useCallback, Suspense } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
@@ -963,16 +964,29 @@ const FormattedCurrencyInput = ({ value, onChange, showError = false }) => {
     const [displayValue, setDisplayValue] = useState('');
 
     useEffect(() => {
-        const numberValue = Number(value) || 0;
-        setDisplayValue(new Intl.NumberFormat('es-AR').format(numberValue));
+        if (value === '' || value === undefined || value === null) {
+            setDisplayValue('');
+        } else if (typeof value === 'string') {
+            // Eliminar puntos antes de convertir
+            const clean = value.replace(/\./g, '');
+            const num = Number(clean);
+            if (isNaN(num)) {
+                setDisplayValue('');
+            } else {
+                setDisplayValue(new Intl.NumberFormat('es-AR').format(num));
+            }
+        } else if (typeof value === 'number') {
+            setDisplayValue(new Intl.NumberFormat('es-AR').format(value));
+        } else {
+            setDisplayValue('');
+        }
     }, [value]);
 
     const handleChange = (e) => {
         const rawValue = e.target.value.replace(/\./g, '');
         if (/^\d*$/.test(rawValue)) {
-            const num = Number(rawValue);
-            setDisplayValue(new Intl.NumberFormat('es-AR').format(num));
-            onChange(num);
+            setDisplayValue(new Intl.NumberFormat('es-AR').format(Number(rawValue)));
+            onChange(rawValue);
         }
     };
 
@@ -999,7 +1013,21 @@ const FormattedCurrencyInput = ({ value, onChange, showError = false }) => {
 
 const CrudModal = ({ item, onClose, onSave, title, fieldsConfig, loading }) => {
     const initialFormState = fieldsConfig.reduce((acc, field) => {
-        acc[field.name] = item?.[field.name] || field.defaultValue || '';
+        if (item && Object.prototype.hasOwnProperty.call(item, field.name)) {
+            if (field.type === 'currency') {
+                const val = item[field.name];
+                if (val === 0 || val === undefined || val === null) {
+                    acc[field.name] = '';
+                } else {
+                    // Convertir a string sin puntos ni formato
+                    acc[field.name] = typeof val === 'string' ? val.replace(/\./g, '') : val.toString();
+                }
+            } else {
+                acc[field.name] = item[field.name];
+            }
+        } else {
+            acc[field.name] = (field.type === 'currency' ? '' : (field.defaultValue !== undefined ? field.defaultValue : ''));
+        }
         return acc;
     }, {});
     const [formData, setFormData] = useState(initialFormState);
@@ -1412,6 +1440,20 @@ const CrudPage = ({ title, data, setData, collectionName, fieldsConfig, customIt
     
     const handleSave = async (itemData) => {
         let dataToSave = { ...itemData };
+        
+        // Convertir campos currency de string a número
+        fieldsConfig.forEach(field => {
+            if (field.type === 'currency' && dataToSave[field.name] !== undefined) {
+                const value = dataToSave[field.name];
+                // Log para debug
+                console.log(`Campo ${field.name}: valor original =`, value, `tipo =`, typeof value);
+                dataToSave[field.name] = (typeof value === 'string' && value !== '') ? Number(value) : 0;
+                console.log(`Campo ${field.name}: valor convertido =`, dataToSave[field.name]);
+            }
+        });
+        
+        console.log('Data final a guardar:', dataToSave);
+        
         const isTimeScoped = collectionName === 'ingresos' || collectionName === 'gastos';
         
         if (isTimeScoped) {
@@ -1698,7 +1740,8 @@ const validateFormData = (data, fieldsConfig) => {
                         <h2 className="text-xl font-semibold text-text-primary">
                             {title} <span className="">({data.length})</span>
                         </h2>
-                        {data.length > 1 && (
+                        {/* Quitar 'Arrastra para reordenar' en inversiones */}
+                        {(data.length > 1 && collectionName !== 'inversiones') && (
                             <div className="text-xs text-text-secondary bg-background-primary px-2 py-1 rounded-full border border-border-color">
                                 Arrastra para reordenar
                             </div>
@@ -1749,8 +1792,19 @@ const validateFormData = (data, fieldsConfig) => {
                     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
                     // Solo para gastos en mobile: mostrar flechas, ocultar drag
                     const showArrows = isMobile && collectionName === 'gastos';
-                    // Si hay un renderizador personalizado, usarlo (para metas)
+                    // Si hay un renderizador personalizado, usarlo 
                     if (customItemRenderer) {
+                        // Si es una función, ejecutarla (para inversiones)
+                        if (typeof customItemRenderer === 'function') {
+                            return customItemRenderer({
+                                item,
+                                index,
+                                handleEdit,
+                                handleDelete
+                            });
+                        }
+                        
+                        // Si es true, usar MetaItem (para metas)
                         return (
                             <div
                                 key={item.id}
@@ -2058,7 +2112,7 @@ const MetasPage = () => {
 };
 
 const MainContent = () => {
-    const { page, ingresos, gastos, deudas, inversiones, metas, setIngresos, setGastos, setDeudas, setInversiones, setMetas, confirmModal, selectedDate } = useContext(AppContext);
+    const { page, ingresos, gastos, deudas, inversiones, metas, setIngresos, setGastos, setDeudas, setInversiones, setMetas, confirmModal, selectedDate, currency, dolarMep } = useContext(AppContext);
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
     const configs = {
@@ -2074,8 +2128,9 @@ const MainContent = () => {
         inversiones: { title: "Inversiones", data: inversiones, setData: setInversiones, collectionName: "inversiones", fields: [
             { name: 'description', label: 'Nombre de la inversión' },
             { name: 'type', label: 'Tipo de inversión', type: 'select', options: ['Renta Fija', 'Renta Variable', 'FCI', 'Otros'] },
-            { name: 'amount', label: 'Monto de inversión', type: 'currency' }
-
+            { name: 'amount', label: 'Monto de inversión', type: 'currency' },
+            { name: 'currentValue', label: 'Valor actual', type: 'currency' },
+            { name: 'startDate', label: 'Fecha de inicio', type: 'date' }
         ] },
     };
 
@@ -2098,8 +2153,7 @@ const MainContent = () => {
                 );
             case 'ingresos':
             case 'gastos':
-            case 'deudas':
-            case 'inversiones': {
+            case 'deudas': {
                 const config = configs[page];
                 return (
                     <div>
@@ -2110,7 +2164,159 @@ const MainContent = () => {
                                 <span>{new Date(selectedDate.year, selectedDate.month).toLocaleString('es-AR', { month: 'long', year: 'numeric' })}</span>
                             </button>
                         </div>
-                        <CrudPage title={config.title} data={config.data} setData={config.setData} collectionName={config.collectionName} fieldsConfig={config.fields} />
+                        <CrudPage 
+                            title={config.title} 
+                            data={config.data} 
+                            setData={config.setData} 
+                            collectionName={config.collectionName} 
+                            fieldsConfig={config.fields} 
+                        />
+                    </div>
+                );
+            }
+            case 'inversiones': {
+                const config = configs[page];
+                // Calcular resumen general
+                const totalInvertido = config.data.reduce((acc, inv) => acc + (Number(inv.amount) || 0), 0);
+                const totalActual = config.data.reduce((acc, inv) => acc + (Number(inv.currentValue) || 0), 0);
+                const rentabilidadGlobal = totalInvertido > 0 ? ((totalActual - totalInvertido) / totalInvertido) * 100 : 0;
+
+                // Preparar datos para Recharts
+                const rechartsData = config.data.map(inv => ({
+                    name: inv.description,
+                    'Monto inicial': Number(inv.amount) || 0,
+                    'Valor actual': Number(inv.currentValue) || 0
+                }));
+
+
+
+                // --- Componente de gráfico limpio con Recharts ---
+                // Importar Recharts solo una vez arriba del archivo:
+                // import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts';
+                return (
+                    <div>
+                        <div className="text-center mb-6 p-4 sm:p-8">
+                            <h1 className="text-3xl font-bold text-text-primary mb-4">Inversiones</h1>
+                            <button onClick={() => setIsCalendarOpen(true)} className="flex items-center gap-2 text-text-secondary bg-background-secondary border border-border-color rounded-lg px-3 py-1 shadow-sm hover:shadow-md hover:text-primary transform hover:-translate-y-0.5 transition-all duration-200 mx-auto">
+                                <icons.calendar className="w-5 h-5"/>
+                                <span>{new Date(selectedDate.year, selectedDate.month).toLocaleString('es-AR', { month: 'long', year: 'numeric' })}</span>
+                            </button>
+                        </div>
+                        {/* Resumen general */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                            <div className="bg-background-secondary rounded-xl p-4 shadow border border-border-color flex flex-col items-center">
+                                <span className="text-xs text-text-secondary">Total invertido</span>
+                                <span className="text-xl font-bold text-accent-cyan">{formatCurrency(totalInvertido, 'ARS')}</span>
+                            </div>
+                            <div className="bg-background-secondary rounded-xl p-4 shadow border border-border-color flex flex-col items-center">
+                                <span className="text-xs text-text-secondary">Valor actual</span>
+                                <span className="text-xl font-bold text-primary">{formatCurrency(totalActual, 'ARS')}</span>
+                            </div>
+                            <div className="bg-background-secondary rounded-xl p-4 shadow border border-border-color flex flex-col items-center">
+                                <span className="text-xs text-text-secondary">Rentabilidad global</span>
+                                <span className={`text-xl font-bold ${rentabilidadGlobal >= 0 ? 'text-accent-green' : 'text-accent-magenta'}`}>{rentabilidadGlobal.toFixed(2)}%</span>
+                            </div>
+                        </div>
+                        {/* Gráfico de barras con Recharts */}
+                        <div className="mb-8 bg-background-secondary rounded-xl p-4 shadow border border-border-color" style={{ minHeight: 260 }}>
+                            <ResponsiveContainer width="100%" height={220}>
+                                <BarChart data={rechartsData} margin={{ top: 10, right: 30, left: 0, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                                    <YAxis tick={{ fontSize: 12 }} />
+                                    <Tooltip />
+                                    <Legend />
+                                    <Bar dataKey="Monto inicial" fill="#26c6da" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="Valor actual" fill="#ff7043" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                        {/* Lista de inversiones con tarjetas en mobile */}
+                        <CrudPage 
+                            title={config.title} 
+                            data={config.data} 
+                            setData={config.setData} 
+                            collectionName={config.collectionName} 
+                            fieldsConfig={config.fields} 
+                            customItemRenderer={({item, index, handleEdit, handleDelete}) => {
+                                // Calcular rentabilidad individual
+                                const inv = item;
+                                console.log('Inversión renderizada:', inv);
+                                console.log('inv.amount:', inv.amount, 'tipo:', typeof inv.amount);
+                                console.log('inv.currentValue:', inv.currentValue, 'tipo:', typeof inv.currentValue);
+                                
+                                // Convertir valores asegurando que sean números
+                                const monto = typeof inv.amount === 'string' ? Number(inv.amount.replace(/\./g, '')) : Number(inv.amount) || 0;
+                                const actual = typeof inv.currentValue === 'string' ? Number(inv.currentValue.replace(/\./g, '')) : Number(inv.currentValue) || 0;
+                                const rent = monto > 0 ? ((actual - monto) / monto) * 100 : 0;
+                                
+                                console.log('Valores calculados - monto:', monto, 'actual:', actual, 'rent:', rent);
+                                
+                                return (
+                                    <div className="group relative p-4 border-b border-border-color last:border-b-0 transition-all duration-200 hover:bg-background-primary/60" key={inv.id}>
+                                        {/* Drag handle */}
+                                        <div className="absolute left-2 top-1/2 transform -translate-y-1/2 opacity-80 group-hover:opacity-100 transition-opacity duration-200 hidden md:block cursor-grab active:cursor-grabbing text-orange-500 dark:text-yellow-400">
+                                            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-5 h-5">
+                                                <circle cx="4" cy="4" r="1.5" fill="currentColor" />
+                                                <circle cx="4" cy="9" r="1.5" fill="currentColor" />
+                                                <circle cx="4" cy="14" r="1.5" fill="currentColor" />
+                                                <circle cx="9" cy="4" r="1.5" fill="currentColor" />
+                                                <circle cx="9" cy="9" r="1.5" fill="currentColor" />
+                                                <circle cx="9" cy="14" r="1.5" fill="currentColor" />
+                                            </svg>
+                                        </div>
+
+                                        <div className="flex justify-between items-center ml-6">
+                                            <div className="flex-1">
+                                                <div className="font-semibold text-text-primary group-hover:text-primary transition-colors duration-200 text-base">{inv.description}</div>
+                                                <div className="text-sm text-text-secondary mt-1">{inv.type} {inv.startDate && `| ${new Date(inv.startDate).toLocaleDateString()}`}</div>
+                                                <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 gap-1 mt-2 text-xs text-text-secondary">
+                                                    <div>Monto inicial: <span className="font-semibold text-accent-cyan">{formatCurrency(monto, 'ARS')}</span></div>
+                                                    <div>Valor actual: <span className="font-semibold text-primary">{formatCurrency(actual, 'ARS')}</span></div>
+                                                    <div className={`font-semibold ${rent >= 0 ? 'text-accent-green' : 'text-accent-magenta'}`}>Rentabilidad: {rent.toFixed(2)}%</div>
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Botones de acción - MOBILE: SIEMPRE visibles */}
+                                            <div className="flex gap-2 md:hidden opacity-100">
+                                                <button 
+                                                    onClick={() => handleEdit(inv)} 
+                                                    className="p-2 text-text-secondary hover:text-primary hover:bg-primary/10 rounded-lg transition-all duration-200"
+                                                    title="Editar"
+                                                >
+                                                    <icons.edit className="w-4 h-4"/>
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDelete(inv.id)} 
+                                                    className="p-2 text-text-secondary hover:text-accent-magenta hover:bg-accent-magenta/10 rounded-lg transition-all duration-200"
+                                                    title="Eliminar"
+                                                >
+                                                    <icons.trash className="w-4 h-4"/>
+                                                </button>
+                                            </div>
+                                            
+                                            {/* Botones de acción - DESKTOP: solo en hover */}
+                                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hidden md:flex">
+                                                <button 
+                                                    onClick={() => handleEdit(inv)} 
+                                                    className="p-2 text-text-secondary hover:text-primary hover:bg-primary/10 rounded-lg transition-all duration-200"
+                                                    title="Editar"
+                                                >
+                                                    <icons.edit className="w-4 h-4"/>
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDelete(inv.id)} 
+                                                    className="p-2 text-text-secondary hover:text-accent-magenta hover:bg-accent-magenta/10 rounded-lg transition-all duration-200"
+                                                    title="Eliminar"
+                                                >
+                                                    <icons.trash className="w-4 h-4"/>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            }}
+                        />
                     </div>
                 );
             }
@@ -2132,10 +2338,13 @@ const MainContent = () => {
     };
 
     return (
-        <div className="bg-background-primary min-h-screen text-text-primary font-sans transition-colors duration-300">
-            <main className="pb-28">
+        <div className="bg-background-primary min-h-screen text-text-primary font-sans transition-colors duration-300 flex flex-col min-h-screen">
+            <main className="pb-28 flex-1">
                 {renderPage()}
             </main>
+            <footer className="w-full py-4 bg-background-secondary border-t border-border-color text-sm text-center md:text-left md:pl-8">
+                <a href="https://neptunestudios.netlify.app/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-semibold">Powered by Neptune Studios</a>
+            </footer>
             <Dock />
             <NotificationModal />
             <UnderConstructionModal />
@@ -2151,7 +2360,7 @@ const MainContent = () => {
             {isCalendarOpen && <CalendarModal onClose={() => setIsCalendarOpen(false)} />}
             <HamburgerMenu />
         </div>
-       );
+    );
 };
 
 function AppContent() {
