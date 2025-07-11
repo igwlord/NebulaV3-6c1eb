@@ -1765,7 +1765,25 @@ const validateFormData = (data, fieldsConfig) => {
                                 </div>
                                 
                                 {/* Botones de acción */}
-                                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                {/* MOBILE: SIEMPRE visibles */}
+                                <div className="absolute top-4 right-4 flex gap-2 md:hidden opacity-100">
+                                    <button 
+                                        onClick={() => handleEdit(item)} 
+                                        className="p-2 text-text-secondary hover:text-primary hover:bg-primary/10 rounded-lg transition-all duration-200"
+                                        title="Editar"
+                                    >
+                                        <icons.edit className="w-4 h-4"/>
+                                    </button>
+                                    <button 
+                                        onClick={() => handleDelete(item.id)} 
+                                        className="p-2 text-text-secondary hover:text-accent-magenta hover:bg-accent-magenta/10 rounded-lg transition-all duration-200"
+                                        title="Eliminar"
+                                    >
+                                        <icons.trash className="w-4 h-4"/>
+                                    </button>
+                                </div>
+                                {/* DESKTOP: solo en hover */}
+                                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hidden md:flex">
                                     <button 
                                         onClick={() => handleEdit(item)} 
                                         className="p-2 text-text-secondary hover:text-primary hover:bg-primary/10 rounded-lg transition-all duration-200"
@@ -1856,13 +1874,32 @@ const validateFormData = (data, fieldsConfig) => {
                                     {item.category || (item.date && new Date(item.date.seconds * 1000).toLocaleDateString())}
                                 </p>
                             </div>
+                            {/* Botones de acción SIEMPRE visibles en mobile, hover en desktop */}
                             <div className="flex items-center gap-4">
                                 <span className={`font-bold text-lg transition-colors duration-200 ${
                                     collectionName === 'ingresos' ? 'text-accent-green' : 'text-accent-magenta'
                                 }`}>
                                     {formatCurrency(item.amount, currency, dolarMep)}
                                 </span>
-                                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                {/* MOBILE: SIEMPRE visibles */}
+                                <div className="flex gap-2 md:hidden opacity-100">
+                                    <button 
+                                        onClick={() => handleEdit(item)} 
+                                        className="p-2 text-text-secondary hover:text-primary hover:bg-primary/10 rounded-lg transition-all duration-200"
+                                        title="Editar"
+                                    >
+                                        <icons.edit className="w-4 h-4"/>
+                                    </button>
+                                    <button 
+                                        onClick={() => handleDelete(item.id)} 
+                                        className="p-2 text-text-secondary hover:text-accent-magenta hover:bg-accent-magenta/10 rounded-lg transition-all duration-200"
+                                        title="Eliminar"
+                                    >
+                                        <icons.trash className="w-4 h-4"/>
+                                    </button>
+                                </div>
+                                {/* DESKTOP: solo en hover */}
+                                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hidden md:flex">
                                     <button 
                                         onClick={() => handleEdit(item)} 
                                         className="p-2 text-text-secondary hover:text-primary hover:bg-primary/10 rounded-lg transition-all duration-200"
