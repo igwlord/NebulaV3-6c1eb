@@ -1,12 +1,12 @@
-
 import React, { useState, useEffect, createContext, useContext, useMemo, useRef, useCallback, Suspense } from 'react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, addDoc, deleteDoc, updateDoc, query, where, writeBatch, getDocs } from 'firebase/firestore';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import './firebase-config.js';
 import * as XLSX from 'xlsx';
 import ResumenTarjeta from './components/ResumenTarjeta';
+import SettingsModal from './components/SettingsModal';
 
 // Función helper para actualizar datos en localStorage
 const refreshLocalStorageData = (collectionName, setData, selectedDate, isTimeScoped) => {
@@ -118,6 +118,7 @@ const AppProvider = ({ children }) => {
     const [db, setDb] = useState(null);
     const [auth, setAuth] = useState(null);
     const [userId, setUserId] = useState(null);
+    const [user, setUser] = useState(null);
 
     const [ingresos, setIngresos] = useState([]);
     const [gastos, setGastos] = useState([]);
@@ -180,6 +181,7 @@ const AppProvider = ({ children }) => {
         const unsubAuth = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 setUserId(user.uid);
+                setUser(user); // Guardar la información completa del usuario
                 const settingsRef = doc(db, `artifacts/${appId}/users/${user.uid}/settings`, 'main');
                 const docSnap = await getDoc(settingsRef);
                 if (docSnap.exists()) {
@@ -193,6 +195,7 @@ const AppProvider = ({ children }) => {
                 }
             } else {
                 setUserId(null);
+                setUser(null); // Limpiar la información del usuario
             }
         });
         return () => unsubAuth();
@@ -311,7 +314,7 @@ const AppProvider = ({ children }) => {
 
     const value = {
         page, setPage, theme, setTheme, currency, setCurrency, dolarMep, setDolarMep,
-        selectedDate, setSelectedDate, db, auth, userId, appId, useLocalStorage,
+        selectedDate, setSelectedDate, db, auth, userId, user, appId, useLocalStorage,
         ingresos, gastos, deudas, inversiones, metas, saveSettings,
         setIngresos, setGastos, setDeudas, setInversiones, setMetas,
         isPrivacyMode, setIsPrivacyMode, dashboardLayout, setDashboardLayout,
@@ -1276,7 +1279,8 @@ const CrudModal = ({ item, onClose, onSave, title, fieldsConfig, loading }) => {
 };
 
 const Settings = () => {
-    const { auth, ingresos, gastos, deudas, inversiones, metas, showNotification } = useContext(AppContext);
+    const { auth, user, ingresos, gastos, deudas, inversiones, metas, showNotification } = useContext(AppContext);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     const handleLogout = async () => {
         if (auth) {
@@ -1320,16 +1324,34 @@ const Settings = () => {
             <div className="text-center mb-6">
                 <h1 className="text-3xl font-bold text-text-primary">Configuración</h1>
             </div>
-            <div className="space-y-8 max-w-2xl">
-                <div className="bg-background-secondary p-6 rounded-xl shadow-lg border border-border-color">
-                    <h2 className="text-xl font-semibold mb-4 text-text-primary">Cerrar Sesión</h2>
-                    <button onClick={handleLogout} className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-all">Cerrar Sesión</button>
-                </div>
-                <div className="bg-background-secondary p-6 rounded-xl shadow-lg border border-border-color">
-                    <h2 className="text-xl font-semibold mb-4 text-text-primary">Descargar Datos</h2>
-                    <button onClick={handleDownloadXLS} className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-all">Descargar XLS</button>
+            <div className="max-w-2xl">
+                <div className="flex flex-col md:flex-row gap-4">
+                    {user && (
+                        <div className="flex-1 bg-background-secondary p-6 rounded-xl shadow-lg border border-border-color flex flex-col justify-between">
+                            <h2 className="text-xl font-semibold mb-4 text-text-primary">Perfil de Usuario</h2>
+                            <button 
+                                onClick={() => setIsModalOpen(true)} 
+                                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-all w-full md:w-auto"
+                            >
+                                Ver Perfil
+                            </button>
+                        </div>
+                    )}
+                    <div className="flex-1 bg-background-secondary p-6 rounded-xl shadow-lg border border-border-color flex flex-col justify-between">
+                        <h2 className="text-xl font-semibold mb-4 text-text-primary">Descargar Datos</h2>
+                        <button onClick={handleDownloadXLS} className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-all w-full md:w-auto">Descargar XLS</button>
+                    </div>
                 </div>
             </div>
+            
+            {user && (
+                <SettingsModal 
+                    isOpen={isModalOpen} 
+                    onClose={() => setIsModalOpen(false)}
+                    user={user}
+                    onLogout={handleLogout}
+                />
+            )}
         </div>
     );
 };
@@ -1541,7 +1563,6 @@ const CrudPage = ({ title, data, setData, collectionName, fieldsConfig, customIt
             const updatedData = newData.map((item, idx) => ({ ...item, order: idx }));
             localStorage.setItem(storageKey, JSON.stringify(updatedData));
         } else {
-            if (!db || !userId) return;
             const batch = writeBatch(db);
             newData.forEach((item, idx) => {
                 const docRef = doc(db, `artifacts/${appId}/users/${userId}/${collectionName}`, item.id);
@@ -1984,7 +2005,7 @@ const validateFormData = (data, fieldsConfig) => {
                                 onDragStart={(e) => handleDragStart(e, index)}
                                 onDragEnter={(e) => handleDragEnter(e, index)}
                                 onDragEnd={handleDragEnd}
-                                onDragOver={handleDragOver}
+                                onDragOver={(e) => e.preventDefault()}
                                 className={`group relative p-6 border-b border-border-color last:border-b-0 transition-all duration-200 ${
                                     dragging && dragItem.current === index 
                                         ? 'scale-105 shadow-2xl bg-primary/10 border-primary/30 opacity-90 transform rotate-1' 
@@ -2244,10 +2265,7 @@ const MetaItem = ({ meta, currency, dolarMep, onEdit, onDelete }) => {
             </div>
             
             <div className="w-full bg-background-terciary rounded-full h-4 overflow-hidden">
-                <div 
-                    className="bg-gradient-to-r from-accent-cyan to-primary h-4 rounded-full transition-all duration-500" 
-                    style={{ width: `${progress}%` }}
-                ></div>
+                <div className="bg-gradient-to-r from-accent-cyan to-primary h-4 rounded-full transition-width duration-500" style={{ width: `${progress}%` }}></div>
             </div>
             
             <div className="flex justify-between items-center text-sm text-text-secondary">
@@ -2303,7 +2321,7 @@ const MainContent = () => {
             { name: 'amount', label: 'Monto de inversión', type: 'currency' },
             { name: 'currentValue', label: 'Valor actual', type: 'currency' },
             { name: 'startDate', label: 'Fecha de inicio', type: 'date' }
-        ] },
+        ] }
     };
 
     const renderPage = () => {
@@ -2547,6 +2565,10 @@ function AppContent() {
                 }
                 body { font-family: 'Lato', sans-serif; }
                 .bg-background-primary { background-color: var(--color-bg-primary); }
+                .bg-background-secondary { background-color: var(--color-bg-secondary); }
+                               .bg-background-terciary { background-color: var(--color-bg-terciary); }
+                .text-text-primary { color: var(--color-text-primary); }
+                .text-text-secondary { color: var(--color-text-secondary); }
                 .bg-background-secondary { background-color: var(--color-bg-secondary); }
                                .bg-background-terciary { background-color: var(--color-bg-terciary); }
                 .text-text-primary { color: var(--color-text-primary); }
