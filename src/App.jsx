@@ -1345,9 +1345,17 @@ const CrudPage = ({ title, data, setData, collectionName, fieldsConfig, customIt
             const batch = writeBatch(db);
             newData.forEach((item, idx) => {
                 const docRef = doc(db, `artifacts/${appId}/users/${userId}/${collectionName}`, item.id);
-                batch.update(docRef, { order: idx });
+                // Usar set con merge para asegurar que el campo order se escriba siempre
+                batch.set(docRef, { order: idx }, { merge: true });
             });
-            batch.commit().catch(err => console.error("Error al reordenar:", err));
+            batch.commit()
+                .then(() => {
+                    // Opcional: log de éxito
+                })
+                .catch(err => {
+                    console.error("Error al reordenar:", err);
+                    if (window && window.alert) window.alert("Error al guardar el orden. Intenta de nuevo.");
+                });
         }
         showNotification('Elementos reordenados correctamente', 'success');
     };
