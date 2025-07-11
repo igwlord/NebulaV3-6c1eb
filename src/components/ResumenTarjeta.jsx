@@ -216,8 +216,8 @@ export default function ResumenTarjeta() {
             <div className="space-y-4">
               {/* Información principal */}
               <div className="bg-background-terciary p-4 rounded-lg border border-border-color">
-                <p className="text-sm text-text-secondary mb-1">Total a pagar:</p>
-                <p className="text-2xl font-bold text-primary">
+                <p className="text-[11px] sm:text-sm text-text-secondary mb-1">Total a pagar:</p>
+                <p className="text-base sm:text-2xl font-bold text-primary">
                   {total && total !== 'No detectado' && total !== 'Error en el reconocimiento' && total !== 'Error de validación' 
                     ? `$${total}` 
                     : total}
@@ -234,22 +234,22 @@ export default function ResumenTarjeta() {
                   <div className="grid grid-cols-1 gap-3">
                     {resumenCompleto.pagoMinimo && resumenCompleto.pagoMinimo !== 'No detectado' && (
                       <div className="bg-green-500/10 p-3 rounded border border-green-500/20">
-                        <p className="text-xs text-green-600 font-medium">Pago Mínimo</p>
-                        <p className="text-green-700 font-semibold">${resumenCompleto.pagoMinimo}</p>
+                        <p className="text-xs sm:text-xs text-green-600 font-medium">Pago Mínimo</p>
+                        <p className="text-sm sm:text-green-700 font-semibold">${resumenCompleto.pagoMinimo}</p>
                       </div>
                     )}
                     
                     {resumenCompleto.fechaVencimiento && resumenCompleto.fechaVencimiento !== 'No detectada' && (
                       <div className="bg-red-500/10 p-3 rounded border border-red-500/20">
-                        <p className="text-xs text-red-600 font-medium">Fecha de Vencimiento</p>
-                        <p className="text-red-700 font-semibold">{resumenCompleto.fechaVencimiento}</p>
+                        <p className="text-xs sm:text-xs text-red-600 font-medium">Fecha de Vencimiento</p>
+                        <p className="text-sm sm:text-red-700 font-semibold">{resumenCompleto.fechaVencimiento}</p>
                       </div>
                     )}
                     
                     {resumenCompleto.informacionCompleta.limiteCredito && (
                       <div className="bg-blue-500/10 p-3 rounded border border-blue-500/20">
-                        <p className="text-xs text-blue-600 font-medium">Límite de Crédito</p>
-                        <p className="text-blue-700 font-semibold">${resumenCompleto.informacionCompleta.limiteCredito}</p>
+                        <p className="text-xs sm:text-xs text-blue-600 font-medium">Límite de Crédito</p>
+                        <p className="text-sm sm:text-blue-700 font-semibold">${resumenCompleto.informacionCompleta.limiteCredito}</p>
                       </div>
                     )}
                   </div>
@@ -286,7 +286,7 @@ export default function ResumenTarjeta() {
               </p>
             </div>
 
-            <div className="flex gap-3 mt-6">
+            <div className="flex flex-col xs:flex-row gap-2 xs:gap-3 mt-6 items-stretch xs:items-center">
               <button
                 onClick={() => {
                   setShowModal(false);
@@ -295,7 +295,7 @@ export default function ResumenTarjeta() {
                   setResumenCompleto(null); // Limpiar resumen completo
                   setProcessingProgress(''); // Limpiar progreso
                 }}
-                className="flex-1 px-4 py-2 bg-background-terciary text-text-primary rounded-md hover:bg-background-terciary/50 transition-colors"
+                className="w-full xs:w-auto flex-1 px-3 py-2 text-xs sm:text-sm bg-background-terciary text-text-primary rounded-md hover:bg-background-terciary/50 transition-colors"
               >
                 Cerrar
               </button>
@@ -309,7 +309,7 @@ export default function ResumenTarjeta() {
                     setError(''); // Limpiar errores al cerrar
                     setResumenCompleto(null); // Limpiar resumen completo
                   }}
-                  className="flex-1 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/80 transition-colors"
+                  className="w-full xs:w-auto flex-1 px-3 py-2 text-xs sm:text-sm bg-primary text-white rounded-md hover:bg-primary/80 transition-colors"
                 >
                   Usar Valor
                 </button>
