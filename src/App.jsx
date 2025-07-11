@@ -1245,10 +1245,10 @@ const Dock = () => {
     );
 };
 
+
 // --- COMPONENTE TOOLTIP ---
 const CustomTooltip = ({ children, text, position = "top" }) => {
     const [isVisible, setIsVisible] = useState(false);
-    
     return (
         <div className="relative inline-block"
              onMouseEnter={() => setIsVisible(true)}
@@ -1274,8 +1274,45 @@ const CustomTooltip = ({ children, text, position = "top" }) => {
     );
 };
 
+// --- PATCH: Desactivar notificaciones visuales en móviles ---
+// Hook para detectar si es mobile
+function useIsMobile() {
+    const [isMobile, setIsMobile] = React.useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+    React.useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+    return isMobile;
+}
+
+// --- PATCH: Sobrescribir showNotification para móviles ---
+// Solo referencia al AppContext ya existente
+function useMobileNotificationPatch() {
+    const ctx = React.useContext(AppContext);
+    const isMobile = useIsMobile();
+    React.useEffect(() => {
+        if (!ctx || !ctx.showNotification) return;
+        if (!ctx._originalShowNotification) {
+            ctx._originalShowNotification = ctx.showNotification;
+        }
+        ctx.showNotification = (msg, type) => {
+            if (isMobile) return; // No mostrar notificaciones en mobile
+            ctx._originalShowNotification(msg, type);
+        };
+        // Limpieza opcional: restaurar si cambia a desktop
+        return () => {
+            if (ctx._originalShowNotification) {
+                ctx.showNotification = ctx._originalShowNotification;
+            }
+        };
+    }, [isMobile, ctx]);
+}
+
+
 const CrudPage = ({ title, data, setData, collectionName, fieldsConfig, customItemRenderer }) => {
     const { db, userId, appId, selectedDate, currency, dolarMep, useLocalStorage, isGuestMode, showNotification, showConfirm } = useContext(AppContext);
+    useMobileNotificationPatch(); // Desactiva notificaciones visuales en mobile
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentItem, setCurrentItem] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -1625,52 +1662,63 @@ const validateFormData = (data, fieldsConfig) => {
 
     return (
         <div className="p-4 sm:p-8">
-            <div className="flex justify-between items-center mb-6 gap-4">
-                <div className="flex items-center gap-3">
-                    <h2 className="text-xl font-semibold text-text-primary">
-                        {title} ({data.length})
-                    </h2>
-                    {data.length > 1 && (
-                        <div className="text-xs text-text-secondary bg-background-primary px-2 py-1 rounded-full border border-border-color hidden md:inline">
-                            Arrastra para reordenar
-                        </div>
+            {/* Encabezado: Mobile y Desktop diferente */}
+            <div className="mb-6 gap-4">
+                {/* MOBILE: Solo botón a la izquierda, sin título, excepto en Dashboard */}
+                <div className="flex items-center justify-start md:hidden">
+                    {title !== 'Dashboard' && (
+                        <button onClick={handleAdd} className="bg-primary text-white font-bold py-2 px-4 rounded-lg hover:bg-primary/80 transition-colors mr-2">
+                            Agregar
+                        </button>
                     )}
                 </div>
-                <div className="flex items-center gap-4">
-                    {/* Selector de vista */}
-                    <div className="flex bg-background-primary border border-border-color rounded-lg p-1">
-                        <button
-                            onClick={() => setViewMode('list')}
-                            className={`px-3 py-1 rounded-md text-sm transition-colors duration-200 ${
-                                viewMode === 'list' 
-                                    ? 'bg-primary text-white' 
-                                    : 'text-text-secondary hover:text-text-primary'
-                            }`}
-                            title="Vista de lista"
-                        >
-                            Lista
-                        </button>
-                        <button
-                            onClick={() => setViewMode('compact')}
-                            className={`px-3 py-1 rounded-md text-sm transition-colors duration-200 ${
-                                viewMode === 'compact' 
-                                    ? 'bg-primary text-white' 
-                                    : 'text-text-secondary hover:text-text-primary'
-                            }`}
-                            title="Vista compacta"
-                        >
-                            Compacta
+                {/* DESKTOP: Título con contador y controles a la derecha */}
+                <div className="hidden md:flex justify-between items-center gap-4">
+                    <div className="flex items-center gap-3">
+                        <h2 className="text-xl font-semibold text-text-primary">
+                            {title} <span className="">({data.length})</span>
+                        </h2>
+                        {data.length > 1 && (
+                            <div className="text-xs text-text-secondary bg-background-primary px-2 py-1 rounded-full border border-border-color">
+                                Arrastra para reordenar
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-4">
+                        {/* Selector de vista */}
+                        <div className="flex bg-background-primary border border-border-color rounded-lg p-1">
+                            <button
+                                onClick={() => setViewMode('list')}
+                                className={`px-3 py-1 rounded-md text-sm transition-colors duration-200 ${
+                                    viewMode === 'list' 
+                                        ? 'bg-primary text-white' 
+                                        : 'text-text-secondary hover:text-text-primary'
+                                }`}
+                                title="Vista de lista"
+                            >
+                                Lista
+                            </button>
+                            <button
+                                onClick={() => setViewMode('compact')}
+                                className={`px-3 py-1 rounded-md text-sm transition-colors duration-200 ${
+                                    viewMode === 'compact' 
+                                        ? 'bg-primary text-white' 
+                                        : 'text-text-secondary hover:text-text-primary'
+                                }`}
+                                title="Vista compacta"
+                            >
+                                Compacta
+                            </button>
+                        </div>
+                        {(collectionName === 'ingresos' || collectionName === 'gastos') && (
+                            <button onClick={handleRepeatPreviousMonth} className="bg-primary/80 text-white font-bold py-2 px-4 rounded-lg hover:bg-primary/60 transition-colors flex items-center gap-2" title="Repetir Mes Anterior">
+                                <icons.repeat className="w-5 h-5"/> <span className="hidden sm:inline">Repetir</span>
+                            </button>
+                        )}
+                        <button onClick={handleAdd} className="bg-primary text-white font-bold py-2 px-4 rounded-lg hover:bg-primary/80 transition-colors">
+                            Agregar {title.slice(0, -1)}
                         </button>
                     </div>
-                    
-                    {(collectionName === 'ingresos' || collectionName === 'gastos') && (
-                        <button onClick={handleRepeatPreviousMonth} className="bg-primary/80 text-white font-bold py-2 px-4 rounded-lg hover:bg-primary/60 transition-colors flex items-center gap-2" title="Repetir Mes Anterior">
-                            <icons.repeat className="w-5 h-5"/> <span className="hidden sm:inline">Repetir</span>
-                        </button>
-                    )}
-                    <button onClick={handleAdd} className="bg-primary text-white font-bold py-2 px-4 rounded-lg hover:bg-primary/80 transition-colors">
-                        Agregar {title.slice(0, -1)}
-                    </button>
                 </div>
             </div>
             <div className={`bg-background-secondary rounded-xl shadow-lg border border-border-color overflow-hidden ${
