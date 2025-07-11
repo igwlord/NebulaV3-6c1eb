@@ -52,6 +52,7 @@ const icons = {
   gripVertical: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>,
   creditCard: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>,
   google: (props) => <svg {...props} width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17.64 9.20455C17.64 8.56636 17.5827 7.95273 17.4682 7.36364H9V10.845H13.8436C13.635 11.97,13.0009 12.9232,12.0477 13.5614V15.8195H14.9564C16.6582 14.2527,17.64 11.9455,17.64 9.20455Z" fill="#4285F4"/><path d="M9 18C11.43 18,13.4673 17.1941,14.9564 15.8195L12.0477 13.5614C11.2418 14.1,10.2109 14.4205,9 14.4205C6.48 14.4205,4.36364 12.6805,3.65182 10.4386H0.717273V12.7805C2.25818 15.795,5.36182 18,9 18Z" fill="#34A853"/><path d="M3.65182 10.4386C3.45455 9.835,3.34091 9.19682,3.34091 8.525C3.34091 7.85318,3.45455 7.215,3.65182 6.61136V4.26955H0.717273C0.258182 5.25,0 6.35318,0 7.525C0 8.69682,0.258182 9.79955,0.717273 10.7805L3.65182 10.4386Z" fill="#FBBC05"/><path d="M9 3.57955C10.3214 3.57955,11.5077 4.03864,12.4405 4.935L15.0218 2.35455C13.4673 0.893636,11.43 0,9 0C5.36182 0,2.25818 2.205,0.717273 5.21955L3.65182 7.56136C4.36364 5.31955,6.48 3.57955,9 3.57955Z" fill="#EA4335"/></svg>,
+  menu: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>,
 };
 
 // --- HELPERS Y CONFIG ---
@@ -1167,6 +1168,49 @@ const UnderConstructionModal = () => {
         </div>
     );
 };
+const HamburgerMenu = () => {
+    const { page, setPage } = useContext(AppContext);
+    const [isOpen, setIsOpen] = useState(false);
+    const navItems = [
+        { id: 'dashboard', label: 'Dashboard', icon: icons.dashboard }, 
+        { id: 'ingresos', label: 'Ingresos', icon: icons.ingresos },
+        { id: 'gastos', label: 'Gastos', icon: icons.gastos }, 
+        { id: 'deudas', label: 'Deudas', icon: icons.deudas },
+        { id: 'inversiones', label: 'Inversiones', icon: icons.inversiones }, 
+        { id: 'metas', label: 'Metas', icon: icons.metas },
+        { id: 'resumenTarjeta', label: 'Tarjetas', icon: icons.creditCard },
+        { id: 'settings', label: 'Settings', icon: icons.settings },
+    ];
+
+    return (
+        <div className="md:hidden fixed top-4 right-4 z-50">
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="p-3 bg-primary text-white rounded-full shadow-lg focus:outline-none"
+            >
+                <icons.menu className="w-6 h-6" />
+            </button>
+            {isOpen && (
+                <div className="absolute top-12 right-0 bg-background-secondary rounded-lg shadow-lg border border-border-color p-4">
+                    {navItems.map(item => (
+                        <button
+                            key={item.id}
+                            onClick={() => {
+                                setPage(item.id);
+                                setIsOpen(false);
+                            }}
+                            className="flex items-center gap-2 p-2 hover:bg-primary/20 rounded-md transition-all"
+                        >
+                            <item.icon className="w-5 h-5" />
+                            <span>{item.label}</span>
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 const Dock = () => {
     const { page, setPage } = useContext(AppContext);
     const navItems = [
@@ -1176,18 +1220,21 @@ const Dock = () => {
         { id: 'deudas', label: 'Deudas', icon: icons.deudas },
         { id: 'inversiones', label: 'Inversiones', icon: icons.inversiones }, 
         { id: 'metas', label: 'Metas', icon: icons.metas },
-        { id: 'resumenTarjeta', label: 'OCR Tarjeta', icon: icons.creditCard },
+        { id: 'resumenTarjeta', label: 'Tarjetas', icon: icons.creditCard },
         { id: 'settings', label: 'Settings', icon: icons.settings },
     ];
 
     return (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40">
+        <div className="hidden md:block fixed bottom-4 left-1/2 -translate-x-1/2 z-40">
             <div className="flex items-end justify-center h-20 space-x-2 bg-background-secondary/70 backdrop-blur-xl p-2 rounded-2xl shadow-2xl border border-border-color">
                 {navItems.map(item => {
                     const isActive = page === item.id;
                     return (
-                        <button key={item.id} onClick={() => setPage(item.id)}
-                            className={`relative flex flex-col items-center justify-center w-16 h-16 rounded-xl transition-all duration-300 ease-in-out group ${isActive ? 'bg-primary text-white' : 'text-text-secondary hover:bg-primary/20'}`}>
+                        <button
+                            key={item.id}
+                            onClick={() => setPage(item.id)}
+                            className={`relative flex flex-col items-center justify-center w-16 h-16 rounded-xl transition-all duration-300 ease-in-out group ${isActive ? 'bg-primary text-white' : 'text-text-secondary hover:bg-primary/20'}`}
+                        >
                             <item.icon className={`w-7 h-7 transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
                             <span className="absolute -top-8 text-xs font-bold px-2 py-1 bg-gray-900 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-300">{item.label}</span>
                         </button>
@@ -1951,6 +1998,7 @@ const MainContent = () => {
                 />
             )}
             {isCalendarOpen && <CalendarModal onClose={() => setIsCalendarOpen(false)} />}
+            <HamburgerMenu />
         </div>
        );
 };
@@ -2160,11 +2208,11 @@ function AppContent() {
                 }
 
                 .animate-fade-in {
-                    animation: fadeIn 0.5s ease-out;
+                    animation: fadeIn 0.5s ease-in-out;
                 }
 
                 .animate-slide-in {
-                    animation: slideIn 0.5s ease-out;
+                    animation: slideIn 0.5s ease-in-out;
                 }
             `}</style>
             { (isGuestMode && useLocalStorage) || userId ? <MainContent /> : <WelcomeScreen /> }
